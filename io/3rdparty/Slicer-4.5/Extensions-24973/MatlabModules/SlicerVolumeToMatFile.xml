@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>Matlab</category>
+  <title>SlicerVolumeToMatFile</title>
+  <description><![CDATA[Sinks a slicer volumen to a MAT file to be read from MatLab.]]></description>
+  <version>0.0.0.1</version>
+  <documentation-url>http://www.slicer.org/slicerWiki/index.php/Documentation/Nightly/Extensions/MatlabBridge</documentation-url>
+  <license/>
+  <contributor>Antonio Tristan-Vega (UVa)</contributor>
+  <acknowledgements><![CDATA[UVa]]></acknowledgements>
+  <parameters>
+    <label>Processing Parameters</label>
+    <description><![CDATA[Parameters for the processing]]></description>
+    <file>
+      <label>MATfile</label>
+      <description><![CDATA[The MATfile to be written]]></description>
+      <longflag>slicermatfile</longflag>
+      <default>~/Downloads/slicervolume.mat</default>     
+    </file>
+  </parameters>
+  <parameters>
+    <label>IO</label>
+    <description><![CDATA[Input parameters]]></description>
+    <image>
+      <label>Scalar Volume</label>
+      <description><![CDATA[Input volume to be written to MAT file]]></description>
+      <longflag>inputvolume</longflag>
+      <channel>input</channel>
+    </image>
+    <image type="diffusion-weighted">
+      <label>DWI Volume</label>
+      <description><![CDATA[DWI Input volume to be written to MAT file]]></description>
+      <longflag>inputvolumeDWI</longflag>
+      <channel>input</channel>
+    </image>
+    <image type="tensor">
+      <label>DTI Volume</label>
+      <description><![CDATA[DTI Input volume to be written to MAT file]]></description>
+      <longflag>inputvolumeDTI</longflag>
+      <channel>input</channel>
+    </image>
+    <image type="label">
+      <label>Labels Volume</label>
+      <description><![CDATA[Labels]]></description>
+      <longflag>inputvolumeLabel</longflag>
+      <channel>input</channel>
+    </image>
+  </parameters>
+</executable>

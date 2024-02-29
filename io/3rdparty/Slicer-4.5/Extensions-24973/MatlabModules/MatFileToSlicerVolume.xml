@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>Matlab</category>
+  <title>MatFileToSlicerVolume</title>
+  <description><![CDATA[Loads a volume in a MAT file into Slicer]]></description>
+  <version>0.0.0.1</version>
+  <documentation-url>http://www.slicer.org/slicerWiki/index.php/Documentation/Nightly/Extensions/MatlabBridge</documentation-url>
+  <license/>
+  <contributor>Antonio Tristan-Vega (UVa)</contributor>
+  <parameters>
+    <label>Processing Parameters</label>
+    <description><![CDATA[Parameters for the processing]]></description>
+    <file>
+      <label>MATfile</label>
+      <description><![CDATA[The MATfile to be loaded]]></description>
+      <longflag>slicermatfile</longflag>
+      <default>~/Downloads/slicervolume.mat</default>     
+    </file>
+  </parameters>
+  <parameters>
+    <label>IO</label>
+    <description><![CDATA[Output parameters]]></description>
+    <image>
+      <label>Output Volume</label>
+      <description><![CDATA[Output volume to be loaded from the MAT file]]></description>
+      <longflag>outputvolume</longflag>
+      <channel>output</channel>
+    </image>
+    <image type="diffusion-weighted">
+      <label>DWI Output Volume</label>
+      <description><![CDATA[DWI output volume to be loaded from MAT file]]></description>
+      <longflag>outputvolumeDWI</longflag>
+      <channel>output</channel>
+    </image>
+    <image type="tensor">
+      <label>DTI Output Volume</label>
+      <description><![CDATA[DTI output volume to be loaded from MAT file]]></description>
+      <longflag>outputvolumeDTI</longflag>
+      <channel>output</channel>
+    </image>
+    <image type="label">
+      <label>Label Output Volume</label>
+      <description><![CDATA[Label output volume to be loaded from MAT file]]></description>
+      <longflag>outputvolumeLabel</longflag>
+      <channel>output</channel>
+    </image>
+  </parameters>
+</executable>

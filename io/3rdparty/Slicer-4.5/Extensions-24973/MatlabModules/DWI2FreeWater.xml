@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>Matlab</category>
+  <title>DWI2FreeWater</title>
+  <description><![CDATA[Computes the free water fraction along with the free water-corrected DTI volume from a DTI image. This is a MatlabBrige module that requires Matlab to be installed in your machine.]]></description>
+  <version>0.0.0.1</version>
+  <documentation-url>http://www.slicer.org/slicerWiki/index.php/Documentation/Nightly/Extensions/MatlabBridge</documentation-url>
+  <license/>
+  <contributor>Antonio Tristan-Vega</contributor>
+  <acknowledgements><![CDATA[ ]]></acknowledgements>
+  <parameters>
+    <label>Input/Output</label>
+    <description><![CDATA[Input/output parameters]]></description>
+    <image type="diffusion-weighted">
+      <label>DWI Volume</label>
+      <description><![CDATA[DWI Input volume to be processed]]></description>
+      <longflag>inputvolumeDWI</longflag>
+      <channel>input</channel>
+    </image>
+    <image type="label">
+      <label>Processing mask [Optional]</label>
+      <description><![CDATA[Mask image to avoid unnecessary computations]]></description>
+      <longflag>inputvolumeMask</longflag>
+      <channel>input</channel>
+    </image>
+    <image type="tensor">
+      <label>DTI Output Volume</label>
+      <description><![CDATA[DTI output volume computed from the DWI after the free water fraction is estimated]]></description>
+      <longflag>outputvolumeDTI</longflag>
+      <channel>output</channel>
+    </image>
+    <image>
+      <label>Non-free water fraction</label>
+      <description><![CDATA[Fraction of intra-fibers water at each voxel]]></description>
+      <longflag>outputvolumeF</longflag>
+      <channel>output</channel>
+    </image>  
+  </parameters>
+  <parameters advanced="true">
+    <label>DWI Parameters</label>
+    <description><![CDATA[Processing parameters involving the raw DWI data]]></description>    
+    <float>
+      <label>Lower threshold</label>
+      <description><![CDATA[The minimum value allowed for the DWI signal]]></description>
+      <longflag>tl</longflag>
+      <default>0.00001</default>
+      <constraints>
+        <minimum>0.000001</minimum>
+        <maximum>0.0001</maximum>
+        <step>0.000001</step>
+      </constraints>      
+    </float>
+    <float>
+      <label>Upper threshold</label>
+      <description><![CDATA[The maximum value allowed for the DWI signal]]></description>
+      <longflag>tu</longflag>
+      <default>0.99999</default>
+      <constraints>
+        <minimum>0.9999</minimum>
+        <maximum>0.999999</maximum>
+        <step>0.000001</step>
+      </constraints>      
+    </float>
+  </parameters>
+  <parameters advanced="true">
+    <label>Spherical Harmonics Parameters</label>
+    <description><![CDATA[Processing parameters involving the SH fitting of data]]></description>
+    <integer>
+      <label>L</label>
+      <description><![CDATA[The order of the Spherical Harmonics used to fit the DWI data]]></description>
+      <longflag>L</longflag>
+      <default>6</default>
+      <constraints>
+        <minimum>0</minimum>
+        <maximum>8</maximum>
+        <step>2</step>
+      </constraints>      
+    </integer>
+    <float>
+      <label>lambda</label>
+      <description><![CDATA[The Tikhonov regularization parameter to fit Spherical Harmonics to the DWI data]]></description>
+      <longflag>lambda</longflag>
+      <default>0.001</default>
+      <constraints>
+        <minimum>0</minimum>
+        <maximum>0.1</maximum>
+        <step>0.001</step>
+      </constraints>      
+    </float>
+  </parameters>
+  <parameters advanced="true">
+    <label>Greedy Optimisation Parameters</label>
+    <description><![CDATA[Processing parameters involving the greedy multi-resolution optimisation algorithm]]></description>
+    <float>
+      <label>Minimum f</label>
+      <description><![CDATA[The minimum value allowed for f]]></description>
+      <longflag>fmin</longflag>
+      <default>0</default>
+      <constraints>
+        <minimum>0</minimum>
+        <maximum>0.1</maximum>
+        <step>0.01</step>
+      </constraints>      
+    </float>
+    <float>
+      <label>Maximum f</label>
+      <description><![CDATA[The maximum value allowed for f]]></description>
+      <longflag>fmax</longflag>
+      <default>0.999</default>
+      <constraints>
+        <minimum>0.99</minimum>
+        <maximum>0.9999</maximum>
+        <step>0.0001</step>
+      </constraints>      
+    </float>
+    <integer>
+      <label>Bins</label>
+      <description><![CDATA[The number of evenly spaced values of f probed at each resolution level (this is a radius, so 2*bins+1 are actually used)]]></description>
+      <longflag>fbins</longflag>
+      <default>5</default>
+      <constraints>
+        <minimum>1</minimum>
+        <maximum>10</maximum>
+        <step>1</step>
+      </constraints>      
+    </integer>
+    <integer>
+      <label>Depth</label>
+      <description><![CDATA[The number of resolution levels used probed in search of f]]></description>
+      <longflag>fdepth</longflag>
+      <default>2</default>
+      <constraints>
+        <minimum>1</minimum>
+        <maximum>4</maximum>
+        <step>1</step>
+      </constraints>      
+    </integer>
+  </parameters>
+  <parameters advanced="true">
+    <label>Iterative Optimisation Parameters</label>
+    <description><![CDATA[Processing parameters involving the iterative optimisation problem]]></description>
+    <boolean>
+      <label>Use iterations</label>
+      <description><![CDATA[Wether or not using the iterative refinement of the solution]]></description>
+      <longflag>O2</longflag>
+      <default>true</default>    
+    </boolean>
+    <integer>
+      <label>Iterations</label>
+      <description><![CDATA[The maximum number of iterations used by the algorithm]]></description>
+      <longflag>fiters</longflag>
+      <default>20</default>
+      <constraints>
+        <minimum>1</minimum>
+        <maximum>100</maximum>
+        <step>1</step>
+      </constraints>      
+    </integer>
+    <float>
+      <label>f threshold</label>
+      <description><![CDATA[Threshold in the change of f before iterations stop]]></description>
+      <longflag>fth</longflag>
+      <default>0.01</default>
+      <constraints>
+        <minimum>0.001</minimum>
+        <maximum>0.1</maximum>
+        <step>0.001</step>
+      </constraints>      
+    </float>
+  </parameters>
+  <parameters advanced="true">
+    <label>Other Parameters</label>
+    <description><![CDATA[General processing parameters]]></description>
+    <integer>
+      <label>chunk size</label>
+      <description><![CDATA[The size of the data blocks processed in Matlab at each time]]></description>
+      <longflag>chunksz</longflag>
+      <default>100</default>
+      <constraints>
+        <minimum>10</minimum>
+        <maximum>1000</maximum>
+        <step>10</step>
+      </constraints>      
+    </integer>
+  </parameters>
+</executable>
