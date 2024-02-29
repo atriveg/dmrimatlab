@@ -44,3 +44,18 @@
 *.bckp
 
 
+data/README.txt
+data/test_data.mat
+data/test_data2.mat
+data/test_data3.mat
+io/3rdparty/Slicer-4.5/Extensions-24973/MatlabModules/DWI2FreeWater
+io/3rdparty/Slicer-4.5/Extensions-24973/MatlabModules/MatFileToSlicerVolume
+io/3rdparty/Slicer-4.5/Extensions-24973/MatlabModules/SlicerVolumeToMatFile
+playground/atti2hydidsi_debuggcv.m
+playground/compute_shodf_from_micro_debuggcv.m
+playground/debuggcv_hydidsi.m
+playground/debuggcv_misfit.m
+playground/dmri_gcv_debuggcv.m
+playground/findgcv_hydidsi.m
+playground/micro2shodf_debuggcv.m
+playground/README.txt
