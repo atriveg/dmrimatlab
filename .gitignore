@@ -37,4 +37,8 @@
 *.mexmaca64
 *.mexmaci64
 
+# Backup files
+*.asv
+*.bck
+
 
