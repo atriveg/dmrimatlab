@@ -40,5 +40,6 @@
 # Backup files
 *.asv
 *.bck
+*.old
 
 
