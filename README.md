@@ -15,21 +15,29 @@ In case you use the package for your own research, we ask you to kindly cite it 
 
 ## Getting started:
 
-1. Download the code.
+1. Download the code from https://github.com/atriveg/dmrimatlab.
 2. From the Matlab command window, cd to the home folder, i.e. that containing the setup script "setup__DMRIMatlab_toolbox.m".
 3. Run the setup script as either:
 
         >> setup__DMRIMatlab_toolbox('useparallel',true);
-        >> setup__DMRIMatlab_toolbox('useparallel',false); or simply: >> setup__DMRIMatlab_toolbox;
+        >> setup__DMRIMatlab_toolbox('useparallel',false);
 
-    for using/avoid using the Parallel Computing Toolbox. In case you don't have a working license for it, the script will not throw an error. This will setup your Matlab path for the present session (it won't make any permanent changes).
-4. Make sure you have a suitable C/C++ compiler installed in your computer (in Windows, we recommend installing the "MinGW" Add-On from the Matlab interface).
-5. Run the script:
+   or simply:
+
+        >> setup__DMRIMatlab_toolbox;
+
+   for using/avoid using the Parallel Computing Toolbox. In case you don't have a working license for it, the script will not throw an error. This will setup your Matlab path for the present session (it won't make any permanent changes).
+4. Download the test data used for demo files and tests by running [YOU ONLY NEED TO (SUCCESSFULLY) RUN THIS COMMAND ONCE]:
+
+        >> download_dmritestdata
+
+5. Make sure you have a suitable C/C++ compiler installed in your computer (in Windows, we recommend installing the "MinGW" Add-On from the Matlab interface).
+6. Run the script [YOU ONLY NEED TO RUN THIS COMMAND EACH TIME YOU PULL A NEW VERSION FROM THE REPO]:
 
         >> makefile_mexcode
 
     which will build all the necessary mex files within the toolbox.
-6. Open/run some of the demo files in the "examples" folder to get started.
+7. Open/run some of the demo files in the "examples" folder to get started.
 
 
 
