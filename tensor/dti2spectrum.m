@@ -21,6 +21,8 @@ function [u1,u2,u3,l1,l2,l3] = dti2spectrum( tensor, varargin )
 %   Optional arguments may be passed as name/value pairs in the regular
 %   matlab style:
 %
+%      clip: wether (true) or not (false) clip negative eigenvalues (if
+%         present) to 0 (default: false).
 %      maxthreads: the maximum number of threads to use in POSIX systems
 %         (default: automatically determined).
 %      mask: a MxNxP array of logicals. Only those voxels where mask is
@@ -37,6 +39,7 @@ if(K~=6)
     error('Weird size of the tensor volume. Its fourth dimension should have size 6');
 end
 % Parse the optional input arguments:
+opt.clip = false;       optchk.clip = [true,true];    % scalar boolean
 opt.maxthreads = 1e6;   optchk.maxthreads = [true,true];
 opt.mask = true(M,N,P); optchk.mask = [true,true];    % boolean with the size of the image field
 opt = custom_parse_inputs(opt,optchk,varargin{:});
@@ -53,6 +56,11 @@ tensor = reshape(tensor,[NV,6]); % NV x 6
 tensor = tensor(mask,:);         % NVM x 6
 % -------------------------------------------------------------------------
 [l1m,l2m,l3m,u1m,u2m,u3m] = dti2spectrum_(tensor',opt.maxthreads);
+if(opt.clip)
+    l1m(l1m<0) = 0;
+    l2m(l2m<0) = 0;
+    l3m(l3m<0) = 0;
+end
 % -------------------------------------------------------------------------
 u1(mask,:) = u1m';
 u2(mask,:) = u2m';
