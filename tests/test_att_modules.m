@@ -200,7 +200,7 @@ for ck=1:ceil(NQ/CHUNKSZ)
     bs  = repmat(bc(idi:idf),[size(gi,1),1]);  % NG x NC
     bi  = bs(:);                               % NG*NC x 1 
     % ---------------------------------------------
-    attiE = micro2atti(SH,lpar,lperp,Gi,bi,'bth',0.5); % 3 x 3 x 3 x (NG*NC)
+    attiE = micro2atti(SH,lpar,lperp,[],Gi,bi,'bth',0.5); % 3 x 3 x 3 x (NG*NC)
     attiE = permute(attiE,[4,1,2,3]);                  % (NG*NC) x 3 x 3 x 3
     attiE = reshape(attiE,[NG,NC,3,3,3]);              % NG x NC x 3 x 3 x 3
     % ---------------------------------------------
