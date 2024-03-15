@@ -15,24 +15,18 @@
 #include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/sh2hot.h"
 #include "../mathsmex/mexToMathsTypes.h"
+#include "../threads/threadHelper.h"
 
-#if defined(_HAS_POSIX_THREADS)
-#include <pthread.h>
-#include <unistd.h>
-#include "omp.h" // Threads management with Lapack/BLAS
-#endif
-
-typedef struct{
+class ThArgs : public DMRIThreader
+{
+public:
     unsigned int K;     // (L+1)(L+2)/2;
-    unsigned long N;    // The number of voxels to process
     BufferType A;       // The values of the conversion matrix
     BufferType shin;    // Size M X (L+1)(L+2)/2, where M is the number of voxels. INPUT
     BufferType hotout;  // Size M X (L+1)(L+2)/2, where M is the number of voxels. OUTPUT
-    unsigned int tid;   // Which thread is being run?
-    unsigned int nth;   // What is the total number of threads?
-} ThArgs;
+};
 
-void* sh2hot_process_fcn( void* );
+THFCNRET sh2hot_process_fcn( void* );
 
 /* The gateway function */
 void mexFunction( int nlhs, mxArray *plhs[],
@@ -112,81 +106,64 @@ void mexFunction( int nlhs, mxArray *plhs[],
         mexErrMsgIdAndTxt("MyToolbox:hot2sh_:matinv","Could not invert the conversion matrix");
     }
     //==========================================
-#if defined(_HAS_POSIX_THREADS)
-    unsigned int maxthreads = sysconf(_SC_NPROCESSORS_CONF);
-    maxthreads = ( (unsigned int)mxGetScalar(prhs[1])<maxthreads ? (unsigned int)mxGetScalar(prhs[1]) : maxthreads );
-#else
-    unsigned int maxthreads = 1;
-#endif
+    unsigned int maxthreads = get_number_of_threads( (unsigned int)mxGetScalar(prhs[1]) );
     //=======================================================================================
-    // Put all the information together in the threaded structure
-    ThArgs* args = new ThArgs[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        args[tid].K = K;
-        args[tid].N = dims[0];
-        args[tid].A = A;
-        args[tid].shin = mxGetDoubles( prhs[0] );
-        args[tid].hotout = mxGetDoubles( plhs[0] );
-        args[tid].tid = tid;
-        args[tid].nth = maxthreads;
-    }
+    // Use the helper class to pass arguments. Inherited values:
+    ThArgs threader;
+    threader.setProcessSize( dims[0], 20 );
+    // Own values:
+    threader.K = K;
+    threader.A = A;
+    threader.shin = mxGetDoubles( prhs[0] );
+    threader.hotout = mxGetDoubles( plhs[0] );
     //=======================================================================================
-#if defined(_HAS_POSIX_THREADS)
-    //=======================================================================================
-    pthread_t* threads = new pthread_t[maxthreads];
-    int*       rets    = new int[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        rets[tid] = pthread_create(
-            &(threads[tid]),
-            NULL,
-            sh2hot_process_fcn, 
-            (void*)(&args[tid])    );
-    }
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        pthread_join( threads[tid], NULL);
-    }
-    delete[] threads;
-    delete[] rets;
-#else
-    sh2hot_process_fcn( (void*)(&args[0]) );
-#endif
+    threader.threadedProcess( maxthreads, sh2hot_process_fcn );
     //=======================================================================================
     if( nlhs<2 )
         delete[] A;
-    delete[] args;
     //=======================================================================================
     return;
 }
 
-void* sh2hot_process_fcn( void* inargs )
+THFCNRET sh2hot_process_fcn( void* inargs )
 {
     ThArgs* args = (ThArgs*)inargs;
+    SizeType N = args->getN();
     BufferType in  = new ElementType[args->K];
     BufferType out = new ElementType[args->K];
-#if defined(_HAS_POSIX_THREADS)
+
     // Note: this call is crucial so that subsequent calls to
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
     // peformance. In non-POSIX systems, however, we don't
-    // externally create threads and we cab let Open MP do its
+    // externally create threads and we can let Open MP do its
     // stuff.
-    int omp_mthreads = omp_get_max_threads();
-    omp_set_num_threads(1);
-#endif
-    for( SizeType i=(args->tid); i<(args->N); i+=(args->nth) ){
-        // Fill input:
-        for( SizeType k1=0; k1<args->K; ++k1 )
-            in[k1] = args->shin[k1*(args->N)+i];
-        // Matrix product:
-        mataux::multiplyMxArrays( args->A, in, out, args->K, args->K, 1 );
-        // Fill output:
-        for( SizeType k2=0; k2<args->K; ++k2 )
-            args->hotout[k2*(args->N)+i] = out[k2];
+    unsigned int blas_threads = blas_num_threads(1);
+    
+    // ---------------------------------------------------------------
+    // Loop through the voxels
+    IndexType start = 0;
+    IndexType end   = 0;
+    do{
+        // Claim a new block of data to process within this thread:
+        args->claimNewBlock( &start, &end );
+        // Process all pixels in the block:
+        for( IndexType i=start; i<end; ++i ){
+            // Fill input:
+            for( SizeType k1=0; k1<args->K; ++k1 )
+                in[k1] = args->shin[k1*N+i];
+            // Matrix product:
+            mataux::multiplyMxArrays( args->A, in, out, args->K, args->K, 1 );
+            // Fill output:
+            for( SizeType k2=0; k2<args->K; ++k2 )
+                args->hotout[k2*N+i] = out[k2];
+        }
     }
-#if defined(_HAS_POSIX_THREADS)
-    omp_set_num_threads(omp_mthreads);
-#endif
+    while( start < N );
+
+    blas_num_threads(blas_threads);
+    
     delete[] in;
     delete[] out;
-    return (void*)NULL;
+    return (THFCNRET)NULL;
 }

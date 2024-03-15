@@ -118,9 +118,11 @@ function [eap,dti,lattice,Qx,Qy,Qz,res,lapl,lopt] = atti2hydidsi( atti, gi, bi, 
 %         the code in parallel (default: false). NOTE: if 'usemex' is set
 %         true, the 'const' option is ignored and the constrained problem
 %         is always solved.
-%      maxthreads: if 'usemex' is set true and this is running in a POSIX
-%         system, the maximum number of threads used (default:
-%         automatically determined).
+%      maxthreads: if 'usemex' is set true, the algorithm is run as a 
+%         multi-threaded mex. This is the maximum allowed number of 
+%         threads, which can indeed be reduced if it exceeds the number of 
+%         logical cores (default: the number of logical cores in the 
+%         machine).
 %      mask: a MxNxP array of logicals. Only those voxels where mask is
 %         true are processed, the others are filled with zeros (default:
 %         all trues).

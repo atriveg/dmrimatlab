@@ -4,6 +4,12 @@
 % - NOTE: for Mac, we have disabled lpthreads until we find a safe way to
 %         prevent BLAS/LAPACK from using their own inner threads. This is
 %         actually implemented within "mexToMathsTypes.h"
+mtlroot = matlabroot;
+if( ~ispc && ~ismac )
+    libsdir = sprintf('%s/bin/glnxa64',mtlroot);
+    mkllib  = sprintf('%s/mkl.so',libsdir);
+end
+
 oldpath = pwd;
 % ------------------------------------------------------------------------------
 cd( [fileparts(which('setup__DMRIMatlab_toolbox')),'/mexcode'] );
@@ -48,14 +54,16 @@ mid = mid+1;
 % -----------------
 modules(mid).name = 'signal2sqrtshodf';
 modules(mid).src = './sh';
-modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/matrixCalculus.cxx','../mathsmex/posODFsMaths.cxx'};
-if( ~ispc && ~ismac )
-    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas'};
-    % This is necessary for calling OpenMP thread managing functions:
-    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
-else
+modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/matrixCalculus.cxx','../mathsmex/posODFsMaths.cxx','../threads/threadHelper.cpp'};
+if( ispc )
     modules(mid).links = {'-lmwlapack','-lmwblas'};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
+elseif(ismac)
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas','-lmwopenblas'};
     modules(mid).others = {};
+else
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas',mkllib};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
 end
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/MiSFIT/utils'];
 modules(mid).ignore = false;
@@ -63,14 +71,16 @@ mid = mid+1;
 % -----------------
 modules(mid).name = 'sh2squaredsh';
 modules(mid).src = './sh';
-modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/matrixCalculus.cxx'};
-if( ~ispc && ~ismac )
-    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas'};
-    % This is necessary for calling OpenMP thread managing functions:
-    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
-else
+modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
+if( ispc )
     modules(mid).links = {'-lmwlapack','-lmwblas'};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
+elseif(ismac)
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas','-lmwopenblas'};
     modules(mid).others = {};
+else
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas',mkllib};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
 end
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/sh'];
 modules(mid).ignore = false;
@@ -78,13 +88,16 @@ mid = mid+1;
 % -----------------
 modules(mid).name = 'shodf2samples';
 modules(mid).src = './sh';
-modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx'};
-if( ~ispc && ~ismac )
-    modules(mid).links = {'-lpthread'};
+modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../threads/threadHelper.cpp'};
+if( ispc )
+    modules(mid).links = {};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
+elseif(ismac)
+    modules(mid).links = {'-lpthread','-lmwopenblas'};
     modules(mid).others = {};
 else
-    modules(mid).links = {};
-    modules(mid).others = {};
+    modules(mid).links = {'-lpthread',mkllib};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
 end
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/sh'];
 modules(mid).ignore = false;
@@ -92,14 +105,16 @@ mid = mid+1;
 % -----------------
 modules(mid).name = 'sh2hot_';
 modules(mid).src = './hot';
-modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot.cxx','../mathsmex/sh2hothardcodes.cxx','../mathsmex/matrixCalculus.cxx'};
-if( ~ispc && ~ismac )
-    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas'};
-    % This is necessary for calling OpenMP thread managing functions:
-    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
-else
+modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot.cxx','../mathsmex/sh2hothardcodes.cxx','../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
+if( ispc )
     modules(mid).links = {'-lmwlapack','-lmwblas'};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
+elseif(ismac)
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas','-lmwopenblas'};
     modules(mid).others = {};
+else
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas',mkllib};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
 end
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/hot'];
 modules(mid).ignore = false;
@@ -107,14 +122,16 @@ mid = mid+1;
 % -----------------
 modules(mid).name = 'hot2sh_';
 modules(mid).src = './hot';
-modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot.cxx','../mathsmex/sh2hothardcodes.cxx','../mathsmex/matrixCalculus.cxx'};
-if( ~ispc && ~ismac )
-    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas'};
-    % This is necessary for calling OpenMP thread managing functions:
-    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
-else
+modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot.cxx','../mathsmex/sh2hothardcodes.cxx','../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
+if( ispc )
     modules(mid).links = {'-lmwlapack','-lmwblas'};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
+elseif(ismac)
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas','-lmwopenblas'};
     modules(mid).others = {};
+else
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas',mkllib};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
 end
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/hot'];
 modules(mid).ignore = false;
@@ -122,14 +139,16 @@ mid = mid+1;
 % -----------------
 modules(mid).name = 'hot2signal_';
 modules(mid).src = './hot';
-modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot.cxx','../mathsmex/matrixCalculus.cxx'};
-if( ~ispc && ~ismac )
-    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas'};
-    % This is necessary for calling OpenMP thread managing functions:
-    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
-else
+modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot.cxx','../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
+if( ispc )
     modules(mid).links = {'-lmwlapack','-lmwblas'};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
+elseif(ismac)
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas','-lmwopenblas'};
     modules(mid).others = {};
+else
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas',mkllib};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
 end
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/hot'];
 modules(mid).ignore = false;
@@ -137,14 +156,16 @@ mid = mid+1;
 % -----------------
 modules(mid).name = 'atti2hydidsi_';
 modules(mid).src = './hydidsi';
-modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../gcv/compute_gcv.cxx'};
-if( ~ispc && ~ismac )
-    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas'};
-    % This is necessary for calling OpenMP thread managing functions:
-    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
-else
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../gcv/compute_gcv.cxx','../threads/threadHelper.cpp'};
+if( ispc )
     modules(mid).links = {'-lmwlapack','-lmwblas'};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
+elseif(ismac)
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas','-lmwopenblas'};
     modules(mid).others = {};
+else
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas',mkllib};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
 end
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
 modules(mid).ignore = false;
@@ -152,14 +173,16 @@ mid = mid+1;
 % -----------------
 modules(mid).name = 'hydidsiQIntegrals_';
 modules(mid).src = './hydidsi';
-modules(mid).depends = {'../mathsmex/matrixCalculus.cxx'};
-if( ~ispc && ~ismac )
-    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas'};
-    % This is necessary for calling OpenMP thread managing functions:
-    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
-else
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
+if( ispc )
     modules(mid).links = {'-lmwlapack','-lmwblas'};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
+elseif(ismac)
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas','-lmwopenblas'};
     modules(mid).others = {};
+else
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas',mkllib};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
 end
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
 modules(mid).ignore = false;
@@ -167,14 +190,16 @@ mid = mid+1;
 % -----------------
 modules(mid).name = 'atti2dti_';
 modules(mid).src = './tensor';
-modules(mid).depends = {'../mathsmex/matrixCalculus.cxx'};
-if( ~ispc && ~ismac )
-    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas'};
-    % This is necessary for calling OpenMP thread managing functions:
-    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
-else
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
+if( ispc )
     modules(mid).links = {'-lmwlapack','-lmwblas'};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
+elseif(ismac)
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas','-lmwopenblas'};
     modules(mid).others = {};
+else
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas',mkllib};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
 end
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tensor'];
 modules(mid).ignore = false;
@@ -182,14 +207,16 @@ mid = mid+1;
 % -----------------
 modules(mid).name = 'dti2spectrum_';
 modules(mid).src = './tensor';
-modules(mid).depends = {'../mathsmex/matrixCalculus.cxx'};
-if( ~ispc && ~ismac )
-    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas'};
-    % This is necessary for calling OpenMP thread managing functions:
-    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
-else
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
+if( ispc )
     modules(mid).links = {'-lmwlapack','-lmwblas'};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
+elseif(ismac)
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas','-lmwopenblas'};
     modules(mid).others = {};
+else
+    modules(mid).links = {'-lpthread','-lmwlapack','-lmwblas',mkllib};
+    modules(mid).others = {'CXXFLAGS="$CXXFLAGS -fopenmp"','LDFLAGS="$LDFLAGS -fopenmp"'};
 end
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tensor'];
 modules(mid).ignore = false;

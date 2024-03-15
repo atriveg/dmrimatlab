@@ -15,16 +15,10 @@
 #include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/sphericalHarmonics.h" // Just for the definition of PI
 #include "../mathsmex/mexToMathsTypes.h"
-
+#include "../threads/threadHelper.h"
 #include "../gcv/compute_gcv.h"
 
-#if defined(_HAS_POSIX_THREADS)
-#include <pthread.h>
-#include <unistd.h>
-#include "omp.h" // Threads management with Lapack/BLAS
-#endif
-
-typedef struct{
+typedef struct HYDIIOData{
     // Input:
     BufferType atti;
     BufferType dti;
@@ -44,7 +38,7 @@ typedef struct{
     BufferType lopt;
 } HYDIIOData;
 
-typedef struct{
+typedef struct HYDIParameters{
     ElementType lambda;
     ElementType ADC0;
     ElementType lRth;
@@ -54,19 +48,18 @@ typedef struct{
     ElementType ctol;
 } HYDIParameters;
 
-typedef struct{
-    unsigned int tid;    // Which thread is being run?
-    unsigned int nth;    // What is the total number of threads?
-    SizeType N;          // The number of voxels to process
+class ThArgs : public DMRIThreader
+{
+public:
     SizeType G;          // The number of gradients
     SizeType K;          // The number of EAP points
     SizeType dftdim[2];  // The size of the DFT matrix
     SizeType lattice[3]; // The lattice size
     HYDIIOData* io;
     HYDIParameters* params;
-} ThArgs;
+};
 
-typedef struct{
+typedef struct QuadProgMem{
     BufferType H;
     BufferType Hi;
     BufferType g;
@@ -93,7 +86,7 @@ void freeQuadProgMem( QuadProgMem* );
 
 IndexType hydidsiQuadProg( QuadProgMem*, const unsigned int, const ElementType, const ElementType, const ElementType, const SizeType );
 
-void* atti2hydidsi_process_fcn( void* );
+THFCNRET atti2hydidsi_process_fcn( void* );
 
 void hydidsiComputeBounds( QuadProgMem*, const SizeType, const ElementType );
 
@@ -229,70 +222,42 @@ void mexFunction( int nlhs, mxArray *plhs[],
     else
         io.lopt = NULL;
     //=======================================================================================
-#if defined(_HAS_POSIX_THREADS)
-    unsigned int maxthreads = sysconf(_SC_NPROCESSORS_CONF);
-    maxthreads = ( (unsigned int)mxGetScalar(prhs[11])<maxthreads ? (unsigned int)mxGetScalar(prhs[11]) : maxthreads );
-#else
-    unsigned int maxthreads = 1;
-#endif
+    unsigned int maxthreads = get_number_of_threads( (unsigned int)mxGetScalar(prhs[11]) );
     //=======================================================================================
-    // Put all the information together in the threaded structure
-    ThArgs* args = new ThArgs[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        args[tid].tid        = tid;
-        args[tid].nth        = maxthreads;
-        args[tid].N          = N;
-        args[tid].G          = G;
-        args[tid].K          = K;
-        args[tid].dftdim[0]  = mxGetM(prhs[6]);
-        args[tid].dftdim[1]  = mxGetN(prhs[6]);
-        args[tid].lattice[0] = ltt[0];
-        args[tid].lattice[1] = ltt[1];
-        args[tid].lattice[2] = ltt[2];
-        args[tid].io         = &io;
-        args[tid].params     = &params;
-    }
-#if defined(_HAS_POSIX_THREADS)
+    // Use the helper class to pass arguments. Inherited values:
+    ThArgs threader;
+    threader.setProcessSize( N, 20 );
+    // Own values:
+    threader.G          = G;
+    threader.K          = K;
+    threader.dftdim[0]  = mxGetM(prhs[6]);
+    threader.dftdim[1]  = mxGetN(prhs[6]);
+    threader.lattice[0] = ltt[0];
+    threader.lattice[1] = ltt[1];
+    threader.lattice[2] = ltt[2];
+    threader.io         = &io;
+    threader.params     = &params;
     //=======================================================================================
-    pthread_t* threads = new pthread_t[maxthreads];
-    int*       rets    = new int[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        rets[tid] = pthread_create(
-            &(threads[tid]),
-            NULL,
-            atti2hydidsi_process_fcn, 
-            (void*)(&args[tid])    );
-    }
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        pthread_join( threads[tid], NULL);
-    }
-    delete[] threads;
-    delete[] rets;
-#else
-    atti2hydidsi_process_fcn( (void*)(&args[0]) );
-#endif
-    delete[] args;
+    // Do the threaded job:
+    threader.threadedProcess( maxthreads, atti2hydidsi_process_fcn );
+    //=======================================================================================
     return;
 }
 
-void* atti2hydidsi_process_fcn( void* inargs )
+THFCNRET atti2hydidsi_process_fcn( void* inargs )
 {
     // Retrieve the structure with all the parameters.
     ThArgs* args = (ThArgs*)inargs;
     HYDIIOData* io = args->io;
     HYDIParameters* params = args->params;
-#if defined(_HAS_POSIX_THREADS)
+        
     // Note: this call is crucial so that subsequent calls to
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
-    // peformance. In non-POSIX systems, however, we don't
-    // externally create threads and we can let Open MP do its
-    // stuff.
-    int omp_mthreads = omp_get_max_threads();
-    omp_set_num_threads(1);
-#endif
+    // peformance.
+    unsigned int blas_threads = blas_num_threads(1);
+
     // Convenience constants:
-    SizeType N = args->N;
     SizeType G = args->G;
     SizeType K = args->K;
     // Allocate auxiliar buffers for computations
@@ -359,279 +324,282 @@ void* atti2hydidsi_process_fcn( void* inargs )
     QuadProgMem mem;
     allocateQuadProgMem( &mem, NR );
     // ---
-    // Loop through the voxels according to an interleaved
-    // scheme for which the i-th thread processes only those
-    // voxels whose position in the buffer modulus nth is i,
-    // with nth the number of threads
-    for(  IndexType i=(IndexType)(args->tid); i<(IndexType)(args->N); i+=(args->nth) ){
-        //---------------------------------------------------------------------
-        // 1- Check the tensor model and compute eigenvalues and eigenvectors
-        //    to shape the transformed space (will use Lapack's dsyev)
-        memcpy( dti, &(io->dti[6*i]), 6*sizeof(ElementType) );
-        dspev( "V", "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info );
-        if(info!=0){
-            // Computation failed for some reason. Fill eigenvalues with
-            // free-water value:
-            eigval[0] = eigval[1] = eigval[2] = args->params->ADC0;
-            eigvec[0] = eigvec[4] = eigvec[8] = 1.0f;
-            eigvec[1] = eigvec[2] = eigvec[3] = eigvec[5] = eigvec[6] =  eigvec[7] = 0.0f;
-        }
-        else{
-            eigval[0] = abs(eigval[0]);
-            eigval[1] = abs(eigval[1]);
-            eigval[2] = abs(eigval[2]);
-            // Sanity checks...
-            for( unsigned int p=0; p<3; ++p ){
-                eigval[p] = abs(eigval[p]);
-                if( eigval[p]<(args->params->ADC0)/60 )
-                    eigval[p] = (args->params->ADC0)/60;
-                if( eigval[p]>args->params->ADC0 )
-                    eigval[p] = args->params->ADC0;
+    // Loop through the voxels
+    IndexType start = 0;
+    IndexType end   = 0;
+    do{
+        // Claim a new block of data to process within this thread:
+        args->claimNewBlock( &start, &end );
+        // Process all pixels in the block:
+        for(  IndexType i=start; i<end; ++i ){
+            //---------------------------------------------------------------------
+            // 1- Check the tensor model and compute eigenvalues and eigenvectors
+            //    to shape the transformed space (will use Lapack's dsyev)
+            memcpy( dti, &(io->dti[6*i]), 6*sizeof(ElementType) );
+            dspev( "V", "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info );
+            if(info!=0){
+                // Computation failed for some reason. Fill eigenvalues with
+                // free-water value:
+                eigval[0] = eigval[1] = eigval[2] = args->params->ADC0;
+                eigvec[0] = eigvec[4] = eigvec[8] = 1.0f;
+                eigvec[1] = eigvec[2] = eigvec[3] = eigvec[5] = eigvec[6] =  eigvec[7] = 0.0f;
             }
-            // Ordering:
-            ElementType eval;
-            ElementType evec[3];
-            for( unsigned int p=0; p<2; ++p ){
-                for( unsigned int q=p+1; q<3; ++q ){
-                    if(eigval[p]>eigval[q]){ // Must reorder
-                        eval = eigval[p];
-                        evec[0] = eigvec[3*p+0];
-                        evec[1] = eigvec[3*p+1];
-                        evec[2] = eigvec[3*p+2];
-                        eigval[p] = eigval[q];
-                        eigval[q] = eval;
-                        eigvec[3*p+0] = eigvec[3*q+0];
-                        eigvec[3*p+1] = eigvec[3*q+1];
-                        eigvec[3*p+2] = eigvec[3*q+2];
-                        eigvec[3*q+0] = evec[0];
-                        eigvec[3*q+1] = evec[1];
-                        eigvec[3*q+2] = evec[2];
+            else{
+                eigval[0] = abs(eigval[0]);
+                eigval[1] = abs(eigval[1]);
+                eigval[2] = abs(eigval[2]);
+                // Sanity checks...
+                for( unsigned int p=0; p<3; ++p ){
+                    eigval[p] = abs(eigval[p]);
+                    if( eigval[p]<(args->params->ADC0)/60 )
+                        eigval[p] = (args->params->ADC0)/60;
+                    if( eigval[p]>args->params->ADC0 )
+                        eigval[p] = args->params->ADC0;
+                }
+                // Ordering:
+                ElementType eval;
+                ElementType evec[3];
+                for( unsigned int p=0; p<2; ++p ){
+                    for( unsigned int q=p+1; q<3; ++q ){
+                        if(eigval[p]>eigval[q]){ // Must reorder
+                            eval = eigval[p];
+                            evec[0] = eigvec[3*p+0];
+                            evec[1] = eigvec[3*p+1];
+                            evec[2] = eigvec[3*p+2];
+                            eigval[p] = eigval[q];
+                            eigval[q] = eval;
+                            eigvec[3*p+0] = eigvec[3*q+0];
+                            eigvec[3*p+1] = eigvec[3*q+1];
+                            eigvec[3*p+2] = eigvec[3*q+2];
+                            eigvec[3*q+0] = evec[0];
+                            eigvec[3*q+1] = evec[1];
+                            eigvec[3*q+2] = evec[2];
+                        }
+                    }
+                }
+                // Make sure eigvec is a rotation matrix
+                // by making e1 = e2 x e3
+                eigvec[0] = eigvec[4]*eigvec[8]-eigvec[5]*eigvec[7];
+                eigvec[1] = eigvec[5]*eigvec[6]-eigvec[3]*eigvec[8];
+                eigvec[2] = eigvec[3]*eigvec[7]-eigvec[4]*eigvec[6];
+            }
+            //---------------------------------------------------------------------
+            // 2- Determine the supports of the q- and the R-spaces
+            mataux::multiplyMxArrays( args->io->gi, (BufferType)eigvec, gi2,
+                                     args->G, 3, 3 );
+            ElementType Qx = (ElementType)(args->lattice[0]) / sqrt( args->params->lRth * eigval[0] );
+            ElementType Qy = (ElementType)(args->lattice[1]) / sqrt( args->params->lRth * eigval[1] );
+            ElementType Qz = (ElementType)(args->lattice[2]) / sqrt( args->params->lRth * eigval[2] );
+            ElementType Q  = Qx*Qy*Qz;
+            if( args->io->Qx != NULL )
+                args->io->Qx[i] = Qx;
+            if( args->io->Qy != NULL )
+                args->io->Qy[i] = Qy;
+            if( args->io->Qz != NULL )
+                args->io->Qz[i] = Qz;
+            //---------------------------------------------------------------------
+            // 3- Determine which q-samples will be actually used (i.e. eliminate
+            //    out-of-bandwidth values):
+            SizeType total_used = 0;
+            for( IndexType g=0; g<args->G; ++g ){
+                qx[g] = (gi2[g])             * (args->io->qi[g]);
+                qy[g] = (gi2[g+(args->G)])   * (args->io->qi[g]);
+                qz[g] = (gi2[g+2*(args->G)]) * (args->io->qi[g]);
+                if( (qx[g]<Qx/2 && qx[g]>-Qx/2) && (qy[g]<Qy/2 && qy[g]>-Qy/2) && (qz[g]<Qz/2 && qz[g]>-Qz/2) ){
+                    atti[(IndexType)total_used] = args->io->atti[(args->G)*i+g];
+                    used[(IndexType)total_used] = g;
+                    total_used++;
+                }
+            }
+            // If the total number of used voxels is just 0, we have
+            // nothing to do. We should skip this voxel and continue
+            if(total_used==0)
+                continue; // Should never be reached
+            //---------------------------------------------------------------------
+            // 4- Sample the R-domain within a regular lattice
+            // The (somehow) weird ordering of the loops in nz, then nx, then ny
+            // is for consistency with matlab's meshgrid
+            IndexType pos = 0;
+            for( IndexType nz=0; nz<=(IndexType)(args->lattice[2]); ++nz ){
+                IndexType nx = ( nz==0 ? 0 : -(IndexType)(args->lattice[0]) );
+                for( ; nx<=(IndexType)(args->lattice[0]); ++nx ){
+                    IndexType ny = ( (nx==0 && nz==0) ? 0 : -(IndexType)(args->lattice[1]) );
+                    for( ; ny<=(IndexType)(args->lattice[1]); ++ny ){
+                        rx[pos] = (ElementType)nx/Qx;
+                        ry[pos] = (ElementType)ny/Qy;
+                        rz[pos] = (ElementType)nz/Qz;
+                        ++pos;
                     }
                 }
             }
-            // Make sure eigvec is a rotation matrix
-            // by making e1 = e2 x e3
-            eigvec[0] = eigvec[4]*eigvec[8]-eigvec[5]*eigvec[7];
-            eigvec[1] = eigvec[5]*eigvec[6]-eigvec[3]*eigvec[8];
-            eigvec[2] = eigvec[3]*eigvec[7]-eigvec[4]*eigvec[6];
-        }
-        //---------------------------------------------------------------------
-        // 2- Determine the supports of the q- and the R-spaces
-        mataux::multiplyMxArrays( args->io->gi, (BufferType)eigvec, gi2,
-                args->G, 3, 3 );
-        ElementType Qx = (ElementType)(args->lattice[0]) / sqrt( args->params->lRth * eigval[0] );
-        ElementType Qy = (ElementType)(args->lattice[1]) / sqrt( args->params->lRth * eigval[1] );
-        ElementType Qz = (ElementType)(args->lattice[2]) / sqrt( args->params->lRth * eigval[2] );
-        ElementType Q  = Qx*Qy*Qz;
-        if( args->io->Qx != NULL )
-            args->io->Qx[i] = Qx;
-        if( args->io->Qy != NULL )
-            args->io->Qy[i] = Qy;
-        if( args->io->Qz != NULL )
-            args->io->Qz[i] = Qz;
-        //---------------------------------------------------------------------
-        // 3- Determine which q-samples will be actually used (i.e. eliminate
-        //    out-of-bandwidth values):
-        SizeType total_used = 0;
-        for( IndexType g=0; g<args->G; ++g ){
-            qx[g] = (gi2[g])             * (args->io->qi[g]);
-            qy[g] = (gi2[g+(args->G)])   * (args->io->qi[g]);
-            qz[g] = (gi2[g+2*(args->G)]) * (args->io->qi[g]);
-            if( (qx[g]<Qx/2 && qx[g]>-Qx/2) && (qy[g]<Qy/2 && qy[g]>-Qy/2) && (qz[g]<Qz/2 && qz[g]>-Qz/2) ){
-                atti[(IndexType)total_used] = args->io->atti[(args->G)*i+g];
-                used[(IndexType)total_used] = g;
-                total_used++;
-            }
-        }
-        // If the total number of used voxels is just 0, we have
-        // nothing to do. We should skip this voxel and continue
-        if(total_used==0)
-            continue; // Should never be reached
-        //---------------------------------------------------------------------
-        // 4- Sample the R-domain within a regular lattice
-        // The (somehow) weird ordering of the loops in nz, then nx, then ny
-        // is for consistency with matlab's meshgrid
-        IndexType pos = 0;
-        for( IndexType nz=0; nz<=(IndexType)(args->lattice[2]); ++nz ){
-            IndexType nx = ( nz==0 ? 0 : -(IndexType)(args->lattice[0]) );
-            for( ; nx<=(IndexType)(args->lattice[0]); ++nx ){
-                IndexType ny = ( (nx==0 && nz==0) ? 0 : -(IndexType)(args->lattice[1]) );
-                for( ; ny<=(IndexType)(args->lattice[1]); ++ny ){
-                    rx[pos] = (ElementType)nx/Qx;
-                    ry[pos] = (ElementType)ny/Qy;
-                    rz[pos] = (ElementType)nz/Qz;
-                    ++pos;
+            //---------------------------------------------------------------------
+            // 5- Create the encoding matrix, total_used x dftdim[1]
+            // Each row corresponds to a measured value in the q-space, and each
+            // column corresponds to a lattice point. Hence, the actual number
+            // of "useful" rows is variable (total_used rows are usable)
+            for( IndexType r=0; r<total_used; ++r ){
+                for( IndexType c=0; c<NR; ++c ){
+                    ElementType carg  = ( qx[used[r]] ) * ( rx[c] );
+                    carg             += ( qy[used[r]] ) * ( ry[c] );
+                    carg             += ( qz[used[r]] ) * ( rz[c] );
+                    carg             *= 2*PI;
+                    if(c==0) // First column, DC component of the EAP
+                        encode[total_used*c+r] = cos(carg)/Q;
+                    else // all non-DC components
+                        encode[total_used*c+r] = 2.0*cos(carg)/Q;
                 }
             }
-        }
-        //---------------------------------------------------------------------
-        // 5- Create the encoding matrix, total_used x dftdim[1]
-        // Each row corresponds to a measured value in the q-space, and each
-        // column corresponds to a lattice point. Hence, the actual number 
-        // of "useful" rows is variable (total_used rows are usable)
-        for( IndexType r=0; r<total_used; ++r ){
-            for( IndexType c=0; c<NR; ++c ){
-                ElementType carg  = ( qx[used[r]] ) * ( rx[c] );
-                carg             += ( qy[used[r]] ) * ( ry[c] );
-                carg             += ( qz[used[r]] ) * ( rz[c] );
-                carg             *= 2*PI;
-                if(c==0) // First column, DC component of the EAP
-                    encode[total_used*c+r] = cos(carg)/Q;
-                else // all non-DC components
-                    encode[total_used*c+r] = 2.0*cos(carg)/Q;
+            //---------------------------------------------------------------------
+            // 6- Create the Laplacian penalty, dftdim[0] x dftdim[1]
+            memcpy( dft, args->io->DFT, (args->dftdim[0])*(args->dftdim[1])*sizeof(ElementType) );
+            ElementType iQ = pow(Q,-2.0/3.0);
+            for( IndexType r=0; r<(IndexType)(args->dftdim[0]); ++r ){
+                u[r] = Qx*Qx*(args->io->u[r])*iQ;
+                v[r] = Qy*Qy*(args->io->v[r])*iQ;
+                w[r] = Qz*Qz*(args->io->w[r])*iQ;
+                for( IndexType c=0; c<(IndexType)(args->dftdim[1]); ++c ){
+                    ElementType norm = (u[r]+v[r]+w[r])/Q;
+                    dft[c*(args->dftdim[0])+r] *= norm;
+                }
             }
-        }
-        //---------------------------------------------------------------------
-        // 6- Create the Laplacian penalty, dftdim[0] x dftdim[1]
-        memcpy( dft, args->io->DFT, (args->dftdim[0])*(args->dftdim[1])*sizeof(ElementType) );
-        ElementType iQ = pow(Q,-2.0/3.0);
-        for( IndexType r=0; r<(IndexType)(args->dftdim[0]); ++r ){
-            u[r] = Qx*Qx*(args->io->u[r])*iQ;
-            v[r] = Qy*Qy*(args->io->v[r])*iQ;
-            w[r] = Qz*Qz*(args->io->w[r])*iQ;
-            for( IndexType c=0; c<(IndexType)(args->dftdim[1]); ++c ){
-                ElementType norm = (u[r]+v[r]+w[r])/Q;
-                dft[c*(args->dftdim[0])+r] *= norm;
+            //---------------------------------------------------------------------
+            // 7- Set up the constrained, regularized problem
+            // This is something like:
+            //    H = encode'*encode + lambda*frt'*ftr
+            //    b = -encode'*atti
+            // ----
+            mataux::transposeMultiplyMxArray( dft, H, args->dftdim[0], NR );
+            mataux::transposeMultiplyMxArray( encode, Hi, total_used, NR );
+            /** GENERALIZED CROSS-VALIDATION IS CARRIED OUT HERE */
+            // Note this piece of code, if run, is especially slow, since
+            // the bottle neck of the algorithm (the inversion of the PD
+            // matrix) has to be repeated many times
+            lambdagcv = params->lambda;
+            if(use_gcv){
+                result_gcv = gcv::computeGCV(encode,Hi,H,atti,pinv,lambdagcv,costgcv,total_used,NR,&gcvparams);
+                // In GCV we will return the final value of the inverted matrix, so that we can replace
+                // the "dposv" call later on with a product GCV*eap
+                if(result_gcv<0) // Matrix inversion failed. Revert...
+                    lambdagcv = gcvparams.lambda0;
             }
-        }
-        //---------------------------------------------------------------------
-        // 7- Set up the constrained, regularized problem
-        // This is something like:
-        //    H = encode'*encode + lambda*frt'*ftr
-        //    b = -encode'*atti
-        // ----
-        mataux::transposeMultiplyMxArray( dft, H, args->dftdim[0], NR );
-        mataux::transposeMultiplyMxArray( encode, Hi, total_used, NR );
-        /** GENERALIZED CROSS-VALIDATION IS CARRIED OUT HERE */
-        // Note this piece of code, if run, is especially slow, since
-        // the bottle neck of the algorithm (the inversion of the PD
-        // matrix) has to be repeated many times
-        lambdagcv = params->lambda;
-        if(use_gcv){
-            result_gcv = gcv::computeGCV(encode,Hi,H,atti,pinv,lambdagcv,costgcv,total_used,NR,&gcvparams);
-            // In GCV we will return the final value of the inverted matrix, so that we can replace
-            // the "dposv" call later on with a product GCV*eap
-            if(result_gcv<0) // Matrix inversion failed. Revert...
-                lambdagcv = gcvparams.lambda0;
-        }
-        if( args->io->lopt != NULL )
-            args->io->lopt[i] = (ElementType)lambdagcv;
-        /** END OF GENERALIZED CROSS-VALIDATION */
-        mataux::scalaropMxArray( H, NR, NR, lambdagcv, mataux::MULTIPLY );
-        mataux::addMxArrays( Hi, H, H, NR, NR );
-        mataux::multiplyMxArrays( atti, encode, b, 1, total_used, NR );
-        mataux::scalaropMxArray( b, NR, 1, -1.0f, mataux::MULTIPLY );
-        memcpy( eap, b, NR*sizeof(ElementType) );
-        // -----
-        // We need to invert the matrix H; the way it is computed, it is necessarily
-        // symmetric and positive SEMI definite. But, if it is invertible, then it
-        // is positive definite. Summarizing, we will call Lapack's dposv for a
-        // Cholesky factorization based solution; if that fails, we cannot proceed
-        //
-        if( use_gcv && (result_gcv>=0) ){
-            // NOTE: if result_gcv==0, the optimal value of lambda
-            // was found and the matrix inversion succeeded. If
-            // result_gcv>0, we didn't get a local minimum, but still
-            // the GCV cost decreased for all iterations and the
-            // matrix inversion was successful, so it makes sense to
-            // use the final value obtained
-            mataux::multiplyMxArrays( pinv, b, eap, NR, NR, 1 );
-        }
-        else{
-            // If either no GCV was required or result_gcv<0 (matrix
-            // inversion failed), we have to explicitly invert the matrix:
-            memcpy( Hi, H, NR*NR*sizeof(ElementType) );
-            dposv( "L", &NR_, &nrhs, Hi, &NR_, eap, &NR_, &info );
-            if(info!=0)
-                continue;
-        }
-        // -----
-        ElementType csum = 0.0f;
-        for( IndexType r=0; r<NR; ++r ){
-            if(eap[r]<0.0)
-                eap[r] = -eap[r];
+            if( args->io->lopt != NULL )
+                args->io->lopt[i] = (ElementType)lambdagcv;
+            /** END OF GENERALIZED CROSS-VALIDATION */
+            mataux::scalaropMxArray( H, NR, NR, lambdagcv, mataux::MULTIPLY );
+            mataux::addMxArrays( Hi, H, H, NR, NR );
+            mataux::multiplyMxArrays( atti, encode, b, 1, total_used, NR );
+            mataux::scalaropMxArray( b, NR, 1, -1.0f, mataux::MULTIPLY );
+            memcpy( eap, b, NR*sizeof(ElementType) );
+            // -----
+            // We need to invert the matrix H; the way it is computed, it is necessarily
+            // symmetric and positive SEMI definite. But, if it is invertible, then it
+            // is positive definite. Summarizing, we will call Lapack's dposv for a
+            // Cholesky factorization based solution; if that fails, we cannot proceed
+            //
+            if( use_gcv && (result_gcv>=0) ){
+                // NOTE: if result_gcv==0, the optimal value of lambda
+                // was found and the matrix inversion succeeded. If
+                // result_gcv>0, we didn't get a local minimum, but still
+                // the GCV cost decreased for all iterations and the
+                // matrix inversion was successful, so it makes sense to
+                // use the final value obtained
+                mataux::multiplyMxArrays( pinv, b, eap, NR, NR, 1 );
+            }
+            else{
+                // If either no GCV was required or result_gcv<0 (matrix
+                // inversion failed), we have to explicitly invert the matrix:
+                memcpy( Hi, H, NR*NR*sizeof(ElementType) );
+                dposv( "L", &NR_, &nrhs, Hi, &NR_, eap, &NR_, &info );
+                if(info!=0)
+                    continue;
+            }
+            // -----
+            ElementType csum = 0.0f;
+            for( IndexType r=0; r<NR; ++r ){
+                if(eap[r]<0.0)
+                    eap[r] = -eap[r];
+                else
+                    eap[r] = 0.0f;
+                if(r>0)
+                    csum += 2.0f * eap[r] / Q;
+                else
+                    csum += eap[r] / Q;
+            }
+            if(csum>mxGetEps()){
+                for( IndexType r=0; r<NR; ++r )
+                    eap[r] /= csum;
+            }
             else
-                eap[r] = 0.0f;
-            if(r>0)
-                csum += 2.0f * eap[r] / Q;
-            else
-                csum += eap[r] / Q;
-        }
-        if(csum>mxGetEps()){
-            for( IndexType r=0; r<NR; ++r )
-                eap[r] /= csum;
-        }
-        else
-            eap[0] = Q;
-        //---------------------------------------------------------------------
-        // 8- Solve the constrained, regularized problem
-        IndexType nit = 0;
-        if(params->miters>0){
-            setupQuadProgMem( &mem, H, b, eap, Q, NR );
-            nit = hydidsiQuadProg( &mem, params->miters, params->otol, params->stol, params->ctol, NR );
-            memcpy( &(eap[1]), mem.x0, (unsigned int)(NR-1)*sizeof(ElementType) ); // The (unisgned int) cast prevents recent gcc's to throw an overflow warning
-            eap[0] = Q;
-            for( IndexType r=1; r<NR; ++r )
-                eap[0] -= 2.0f * eap[r];
-            memcpy( &(args->io->eap[i*NR]), eap, NR*sizeof(ElementType) );
-        }
-        //---------------------------------------------------------------------
-        // 9- If necessary, compute the residual of the fitting and
-        //    the Laplacian penalty
-        if( args->io->resn != NULL ){
-            // In MATLAB, we do:
-            //  resn  = ( atti - encode*eap );
-            //  resn  = (resn')*resn;
-            // which we can translate to direct Lapack's calls
-            //   atti:   total_used x 1
-            //   encode: total_used x NR
-            //   eap:    NR x 1
-            total_used_ = total_used;
-            alpha_ = 1.0f;
-            beta_  = -1.0f;
-            dgemv( "N", &total_used_, &NR_, &alpha_, encode,
-                &total_used_, eap, &unit_, &beta_, atti, &unit_ );
-            ElementType resn = ddot( &total_used_, atti, &unit_, atti, &unit_ );
-            /*
-            ElementType resn = 0.0f;
-            for( IndexType r=0; r<total_used; ++r ){
+                eap[0] = Q;
+            //---------------------------------------------------------------------
+            // 8- Solve the constrained, regularized problem
+            IndexType nit = 0;
+            if(params->miters>0){
+                setupQuadProgMem( &mem, H, b, eap, Q, NR );
+                nit = hydidsiQuadProg( &mem, params->miters, params->otol, params->stol, params->ctol, NR );
+                memcpy( &(eap[1]), mem.x0, (unsigned int)(NR-1)*sizeof(ElementType) ); // The (unisgned int) cast prevents recent gcc's to throw an overflow warning
+                eap[0] = Q;
+                for( IndexType r=1; r<NR; ++r )
+                    eap[0] -= 2.0f * eap[r];
+                memcpy( &(args->io->eap[i*NR]), eap, NR*sizeof(ElementType) );
+            }
+            //---------------------------------------------------------------------
+            // 9- If necessary, compute the residual of the fitting and
+            //    the Laplacian penalty
+            if( args->io->resn != NULL ){
+                // In MATLAB, we do:
+                //  resn  = ( atti - encode*eap );
+                //  resn  = (resn')*resn;
+                // which we can translate to direct Lapack's calls
+                //   atti:   total_used x 1
+                //   encode: total_used x NR
+                //   eap:    NR x 1
+                total_used_ = total_used;
+                alpha_ = 1.0f;
+                beta_  = -1.0f;
+                dgemv( "N", &total_used_, &NR_, &alpha_, encode,
+                      &total_used_, eap, &unit_, &beta_, atti, &unit_ );
+                ElementType resn = ddot( &total_used_, atti, &unit_, atti, &unit_ );
+                /*
+                ElementType resn = 0.0f;
+                for( IndexType r=0; r<total_used; ++r ){
                 ElementType temp = args->io->atti[i*(args->G)+used[r]];
                 for( IndexType c=0; c<NR; ++c )
-                    temp -= encode[total_used*c+r] * (args->io->eap[i*NR+c]);
+                temp -= encode[total_used*c+r] * (args->io->eap[i*NR+c]);
                 resn += (temp*temp);
+                }
+                */
+                args->io->resn[i] = resn;
             }
-            */
-            args->io->resn[i] = resn;
-        }
-        if( args->io->lapln != NULL ){
-            // In MATLAB, we do:
-            //  lapln = dft*eap;
-            //  lapln = (lapln')*lapln;
-            // which we can translate to direct Lapack's calls
-            //   dft: args->dftdim[0] x NR
-            //   eap: NR x 1
-            total_used_ = args->dftdim[0]; // Re-use the variable
-            alpha_ = 1.0f;
-            beta_  = 0.0f;
-            dgemv( "N", &total_used_, &NR_, &alpha_, dft,
-                &total_used_, eap, &unit_, &beta_, u, &unit_ ); // Re-use "u"
-            ElementType lapln = ddot( &total_used_, u, &unit_, u, &unit_ );
-            /*
-            ElementType lapln = 0.0f;
-            for( IndexType r=0; r<(IndexType)(args->dftdim[0]); ++r ){
+            if( args->io->lapln != NULL ){
+                // In MATLAB, we do:
+                //  lapln = dft*eap;
+                //  lapln = (lapln')*lapln;
+                // which we can translate to direct Lapack's calls
+                //   dft: args->dftdim[0] x NR
+                //   eap: NR x 1
+                total_used_ = args->dftdim[0]; // Re-use the variable
+                alpha_ = 1.0f;
+                beta_  = 0.0f;
+                dgemv( "N", &total_used_, &NR_, &alpha_, dft,
+                      &total_used_, eap, &unit_, &beta_, u, &unit_ ); // Re-use "u"
+                ElementType lapln = ddot( &total_used_, u, &unit_, u, &unit_ );
+                /*
+                ElementType lapln = 0.0f;
+                for( IndexType r=0; r<(IndexType)(args->dftdim[0]); ++r ){
                 ElementType temp = 0.0f;
                 for( IndexType c=0; c<(IndexType)NR; ++c )
-                    temp += dft[c*(args->dftdim[0])+r] * (args->io->eap[i*NR+c]);
+                temp += dft[c*(args->dftdim[0])+r] * (args->io->eap[i*NR+c]);
                 lapln += (temp*temp);
+                }
+                */
+                args->io->lapln[i] = lapln;
             }
-            */
-            args->io->lapln[i] = lapln;
+            //---------------------------------------------------------------------
         }
-        //---------------------------------------------------------------------
     }
-#if defined(_HAS_POSIX_THREADS)
-    omp_set_num_threads(omp_mthreads);
-#endif
+    while( start < args->getN() );
+   
     // Free memory previously allocated
     delete[] gi2;
     delete[] used;
@@ -658,7 +626,11 @@ void* atti2hydidsi_process_fcn( void* inargs )
         gcv::freeGCVMemory( &gcvparams );
     }
     freeQuadProgMem( &mem );
-    return (void*)NULL;
+
+    // Revert BLAS threads usage to its default:
+    blas_num_threads(blas_threads);
+    
+    return (THFCNRET)NULL;
 }
 
 void allocateQuadProgMem( QuadProgMem* mem, const SizeType NR ){

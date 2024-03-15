@@ -2,6 +2,8 @@
 % shodf2samples(SH,N,c)
 % shodf2samples(SH,N,c,seed)
 % shodf2samples(SH,N,[],seed)
+% shodf2samples(SH,N,*,seed,maxthreads)
+% shodf2samples(SH,N,*,[],maxthreads)
 % c = shodf2samples(___)
 % [theta,phi] = shodf2samples(___)
 % [theta,phi,c] = shodf2samples(___)
@@ -25,8 +27,13 @@
 %      - seed (optional): a 1x3 vector used to initialize the state of the
 %            random number generator (the C++ drand48_r() routine is used,
 %            so that these 3 elements are at the end of the day combined
-%            into a 48 bits integer). If ommitted, the function itself will
-%            choose a proper initial state based on the CPU time.
+%            into a 48 bits integer). If ommitted (or empty), the function
+%            itself will choose a proper initial state based on the CPU 
+%            time.
+%      - maxthreads (optional): a 1x1 integer with the maximum number of
+%            threads used. If ommitted, as many threads as available CPUs
+%            are used. If a number greater than the number of CPUs is
+%            passed, it is cropped to the number of CPUs.
 %
 %   OUTPUTS:
 %

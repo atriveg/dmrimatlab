@@ -44,10 +44,10 @@ function [HOT,A] = sh2hot( SH, varargin )
 %
 %      mask: a MxNxP array of logicals. Only those voxels where mask is
 %         true are processed, the others are filled with zeros.
-%      maxthreads: ONLY IN POSIX SYSTEMS the algorithm is run with
-%         multiple threads. This is the maximum allowed number of threads,
-%         which can indeed be reduced if it exceeds the number of logical
-%         cores (default: the number of logical cores in the machine).
+%      maxthreads: the algorithm is run with multiple threads. This is the 
+%         maximum allowed number of threads, which can indeed be reduced if
+%         it exceeds the number of logical cores (default: the number of 
+%         logical cores in the machine).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Check the mandatory input arguments:

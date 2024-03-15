@@ -14,14 +14,9 @@
 #include "math.h"
 #include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/mexToMathsTypes.h"
+#include "../threads/threadHelper.h"
 
-#if defined(_HAS_POSIX_THREADS)
-#include <pthread.h>
-#include <unistd.h>
-#include "omp.h" // Threads management with Lapack/BLAS
-#endif
-
-typedef struct{
+typedef struct DTIIOData{
     // Input:
     BufferType signal;
     BufferType gi;
@@ -31,7 +26,7 @@ typedef struct{
     BufferType s0;
 } DTIIOData;
 
-typedef struct{
+typedef struct DTIParameters{
     unsigned int wlsit;
     unsigned int maxiters;
     ElementType tol;
@@ -41,17 +36,16 @@ typedef struct{
     char mode;    // 'o'/'w'/'p'
 } DTIParameters;
 
-typedef struct{
-    unsigned int tid;    // Which thread is being run?
-    unsigned int nth;    // What is the total number of threads?
-    SizeType N;          // The number of voxels to process
+class ThArgs : public DMRIThreader
+{
+public:
     SizeType G;          // The number of gradients
     DTIIOData* io;
     DTIParameters* params;
-} ThArgs;
+};
 
 
-void* signal2dti_process_fcn( void* );
+THFCNRET signal2dti_process_fcn( void* );
 
 void squareDTI( const BufferType, BufferType );
 
@@ -156,64 +150,37 @@ void mexFunction( int nlhs, mxArray *plhs[],
     plhs[1] = mxCreateDoubleMatrix( 1, N, mxREAL );
     io.s0 = mxGetDoubles(plhs[1]);
     //=======================================================================================
-#if defined(_HAS_POSIX_THREADS)
-    unsigned int maxthreads = sysconf(_SC_NPROCESSORS_CONF);
-    maxthreads = ( (unsigned int)mxGetScalar(prhs[4])<maxthreads ? (unsigned int)mxGetScalar(prhs[4]) : maxthreads );
-#else
-    unsigned int maxthreads = 1;
-#endif
+    unsigned int maxthreads = get_number_of_threads( (unsigned int)mxGetScalar(prhs[4]) );
     //=======================================================================================
-    // Put all the information together in the threaded structure
-    ThArgs* args = new ThArgs[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        args[tid].tid        = tid;
-        args[tid].nth        = maxthreads;
-        args[tid].N          = N;
-        args[tid].G          = G;
-        args[tid].io         = &io;
-        args[tid].params     = &params;
-    }
-#if defined(_HAS_POSIX_THREADS)
+    // Use the helper class to pass arguments. Inherited values:
+    ThArgs threader;
+    threader.setProcessSize( N, 20 );
+    // Own values:
+    threader.G      = G;
+    threader.io     = &io;
+    threader.params = &params;
     //=======================================================================================
-    pthread_t* threads = new pthread_t[maxthreads];
-    int*       rets    = new int[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        rets[tid] = pthread_create(
-            &(threads[tid]),
-            NULL,
-            signal2dti_process_fcn, 
-            (void*)(&args[tid])    );
-    }
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        pthread_join( threads[tid], NULL);
-    }
-    delete[] threads;
-    delete[] rets;
-#else
-    signal2dti_process_fcn( (void*)(&args[0]) );
-#endif
-    delete[] args;
+    threader.threadedProcess( maxthreads, signal2dti_process_fcn );
+    //=======================================================================================
     return;
 }
 
-void* signal2dti_process_fcn( void* inargs )
+THFCNRET signal2dti_process_fcn( void* inargs )
 {
     // Retrieve the structure with all the parameters.
     ThArgs* args = (ThArgs*)inargs;
     DTIIOData* io = args->io;
     DTIParameters* params = args->params;
-#if defined(_HAS_POSIX_THREADS)
+
     // Note: this call is crucial so that subsequent calls to
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
     // peformance. In non-POSIX systems, however, we don't
-    // externally create threads and we cab let Open MP do its
+    // externally create threads and we can let Open MP do its
     // stuff.
-    int omp_mthreads = omp_get_max_threads();
-    omp_set_num_threads(1);
-#endif
+    unsigned int blas_threads = blas_num_threads(1);
+    
     // Convenience constants:
-    SizeType N = args->N;
     SizeType G = args->G;
     // Allocate auxiliar buffers for computations
     // ---------------------------------------------------------------
@@ -283,116 +250,122 @@ void* signal2dti_process_fcn( void* inargs )
     // ---------------------------------------------------------------
     BufferType wi = new ElementType[G+1];
     // ---------------------------------------------------------------
-    // Loop through the voxels according to an interleaved
-    // scheme for which the i-th thread processes only those
-    // voxels whose position in the buffer modulus nth is i,
-    // with nth the number of threads
-    for(  IndexType i=(IndexType)(args->tid); i<(IndexType)(args->N); i+=(args->nth) ){
-        //---------------------------------------------------------------------
-        // Regardless of the working mode, we will always begin with an OLS
-        // approximation to the solution, which reduces to the product of the
-        // pre-compute pseudo-inverse of A, piA, with the acquired signal:
-        memcpy( lSi, &(io->signal[i*G]), G*sizeof(ElementType) );
-        for( IndexType g=0; g<(IndexType)G; ++g )
-            lSi[g] = log( lSi[g]>mxGetEps() ? lSi[g] : mxGetEps() );
-        lSi[G] = 0.0f;
-        mataux::multiplyMxArrays( piA, lSi, (BufferType)x, 7, G+1, 1 );
-        //---------------------------------------------------------------------
-        if( params->mode=='w' || params->mode=='p' ){
-            // In any of these cases we need to iterate to compute the
-            // WLS solution
-            for( unsigned int n=0; n<params->wlsit; ++n ){
-                // 1- Compute the weights wi at this iteration:
-                mataux::multiplyMxArrays( A, (BufferType)x, wi, G+1, 7, 1 );
-                ElementType maxw = -1.0f;
-                bool anynan = false;
-                for( IndexType g=0; g<(IndexType)G+1; ++g ){
-                    wi[g] = exp(2.0f*wi[g]);
-                    wi[g] = ( wi[g]>1.0 ? 1.0 : wi[g] );
-                    wi[g] = ( wi[g]<0.0 ? 0.0 : wi[g] );
-                    maxw = ( wi[g]>maxw ? wi[g] : maxw );
-                    anynan |= isnan(wi[g]);
-                }
-                if(anynan)
-                    break;
-                for( IndexType g=0; g<(IndexType)G+1; ++g ){
-                    if( wi[g] < maxw*(params->wsc) )
-                        wi[g] = maxw*(params->wsc);
-                }
-                wi[G] = maxw;
-                // 2- Create the WLS problem:
-                memcpy( A2, A, (G+1)*7*sizeof(ElementType) );
-                for( IndexType g=0; g<(IndexType)G+1; ++g ){
-                    lSiw[g] = lSi[g] * wi[g];
-                    for( unsigned int c=0; c<7; ++c )
-                        A2[c*(G+1)+g] *= wi[g];
-                }
-                mataux::multiplyMxArrays( AT, A2, ATA, 7, G+1, 7 );
-                mataux::multiplyMxArrays( AT, lSiw, lSii, 7, G+1, 1 );
-                // 3- Solve the WLS problem:
-                IndexType result = mataux::checkAndInvertMxArray( (BufferType)ATA, 7, params->rcondth, 
-                        (IndexBuffer)pivot1, (IndexBuffer)pivot2, lwork, work2 );
-                if( result == 0 ){
-                    mataux::multiplyMxArrays( (BufferType)ATA, lSii, (BufferType)x2, 7, 7, 1 );
-                    for( unsigned int c=0; c<7; ++c )
-                        anynan |= isnan(x2[c]);
+    // ---
+    // Loop through the voxels
+    IndexType start = 0;
+    IndexType end   = 0;
+    do{
+        // Claim a new block of data to process within this thread:
+        args->claimNewBlock( &start, &end );
+        // Process all pixels in the block:
+        for(  IndexType i=start; i<end; ++i ){
+            //---------------------------------------------------------------------
+            // Regardless of the working mode, we will always begin with an OLS
+            // approximation to the solution, which reduces to the product of the
+            // pre-compute pseudo-inverse of A, piA, with the acquired signal:
+            memcpy( lSi, &(io->signal[i*G]), G*sizeof(ElementType) );
+            for( IndexType g=0; g<(IndexType)G; ++g )
+                lSi[g] = log( lSi[g]>mxGetEps() ? lSi[g] : mxGetEps() );
+            lSi[G] = 0.0f;
+            mataux::multiplyMxArrays( piA, lSi, (BufferType)x, 7, G+1, 1 );
+            //---------------------------------------------------------------------
+            if( params->mode=='w' || params->mode=='p' ){
+                // In any of these cases we need to iterate to compute the
+                // WLS solution
+                for( unsigned int n=0; n<params->wlsit; ++n ){
+                    // 1- Compute the weights wi at this iteration:
+                    mataux::multiplyMxArrays( A, (BufferType)x, wi, G+1, 7, 1 );
+                    ElementType maxw = -1.0f;
+                    bool anynan = false;
+                    for( IndexType g=0; g<(IndexType)G+1; ++g ){
+                        wi[g] = exp(2.0f*wi[g]);
+                        wi[g] = ( wi[g]>1.0 ? 1.0 : wi[g] );
+                        wi[g] = ( wi[g]<0.0 ? 0.0 : wi[g] );
+                        maxw = ( wi[g]>maxw ? wi[g] : maxw );
+                        anynan |= isnan(wi[g]);
+                    }
                     if(anynan)
                         break;
+                    for( IndexType g=0; g<(IndexType)G+1; ++g ){
+                        if( wi[g] < maxw*(params->wsc) )
+                            wi[g] = maxw*(params->wsc);
+                    }
+                    wi[G] = maxw;
+                    // 2- Create the WLS problem:
+                    memcpy( A2, A, (G+1)*7*sizeof(ElementType) );
+                    for( IndexType g=0; g<(IndexType)G+1; ++g ){
+                        lSiw[g] = lSi[g] * wi[g];
+                        for( unsigned int c=0; c<7; ++c )
+                            A2[c*(G+1)+g] *= wi[g];
+                    }
+                    mataux::multiplyMxArrays( AT, A2, ATA, 7, G+1, 7 );
+                    mataux::multiplyMxArrays( AT, lSiw, lSii, 7, G+1, 1 );
+                    // 3- Solve the WLS problem:
+                    IndexType result = mataux::checkAndInvertMxArray( (BufferType)ATA, 7, params->rcondth,
+                                                                     (IndexBuffer)pivot1, (IndexBuffer)pivot2, lwork, work2 );
+                    if( result == 0 ){
+                        mataux::multiplyMxArrays( (BufferType)ATA, lSii, (BufferType)x2, 7, 7, 1 );
+                        for( unsigned int c=0; c<7; ++c )
+                            anynan |= isnan(x2[c]);
+                        if(anynan)
+                            break;
+                        else
+                            memcpy( x, x2, 7*sizeof(ElementType) );
+                    }
                     else
-                        memcpy( x, x2, 7*sizeof(ElementType) );
+                        break;
                 }
-                else
-                    break;
             }
-        }
-        //---------------------------------------------------------------------
-        // Either non-negative eigenvalues correction is explicitly asked for
-        // or positive, non-linear estimation will be used, it is necessary to
-        // compute the eigenvalues and eigenvectors (in the latter case, to
-        // compute a feasible initial iteration).
-        if( params->mode=='p' || params->fixmode!='n' ){
-            memcpy( (BufferType)dti, (BufferType)x, 6*sizeof(ElementType) );
-            dspev( "V", "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info );
-            if(info==0){
-                if( params->fixmode=='a' ){
-                    eigval[0] = abs( eigval[0] );
-                    eigval[1] = abs( eigval[1] );
-                    eigval[2] = abs( eigval[2] );
+            //---------------------------------------------------------------------
+            // Either non-negative eigenvalues correction is explicitly asked for
+            // or positive, non-linear estimation will be used, it is necessary to
+            // compute the eigenvalues and eigenvectors (in the latter case, to
+            // compute a feasible initial iteration).
+            if( params->mode=='p' || params->fixmode!='n' ){
+                memcpy( (BufferType)dti, (BufferType)x, 6*sizeof(ElementType) );
+                dspev( "V", "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info );
+                if(info==0){
+                    if( params->fixmode=='a' ){
+                        eigval[0] = abs( eigval[0] );
+                        eigval[1] = abs( eigval[1] );
+                        eigval[2] = abs( eigval[2] );
+                    }
+                    else{
+                        eigval[0] = ( eigval[0]>0 ? eigval[0] : 0.0f );
+                        eigval[1] = ( eigval[1]>0 ? eigval[1] : 0.0f );
+                        eigval[2] = ( eigval[2]>0 ? eigval[2] : 0.0f );
+                    }
+                    // Reconstruct the (unique components of the) diffusion
+                    // tensor from its eigenvalues and eigenvectors:
+                    DTIFromEigs( eigval[0], eigval[1], eigval[2], eigvec, x );
                 }
-                else{
-                    eigval[0] = ( eigval[0]>0 ? eigval[0] : 0.0f );
-                    eigval[1] = ( eigval[1]>0 ? eigval[1] : 0.0f );
-                    eigval[2] = ( eigval[2]>0 ? eigval[2] : 0.0f );
+            }
+            //---------------------------------------------------------------------
+            if( params->mode=='p' && info==0 ){
+                // NOTE: if info!=0, the eigenvalue computation failed and
+                // we cannot assure there is a feasible first iteration
+                DTIFromEigs( sqrt(eigval[0]), sqrt(eigval[1]), sqrt(eigval[2]), eigvec, xr );
+                xr[6] = x[6];
+                IndexType success = dtiLMFit( G, &(io->signal[i*G]), lSi, lSiw,
+                                             A, A2, (BufferType)ATA2, (BufferType)ATA3,
+                                             (BufferType)xr, (BufferType)xr2, (BufferType)x2,
+                                             (IndexBuffer)pivot1, (IndexBuffer)pivot2, lwork, work2,
+                                             params );
+                if(success==0){
+                    squareDTI( (BufferType)xr, (BufferType)x );
+                    x[6] = xr[6];
                 }
-                // Reconstruct the (unique components of the) diffusion
-                // tensor from its eigenvalues and eigenvectors:
-                DTIFromEigs( eigval[0], eigval[1], eigval[2], eigvec, x );
             }
+            //---------------------------------------------------------------------
+            // At this point, we can copy the outputs to the proper place:
+            memcpy( &(io->dti[6*i]), x, 6*sizeof(ElementType) );
+            io->s0[i] = exp(scale*x[6]);
         }
-        //---------------------------------------------------------------------
-        if( params->mode=='p' && info==0 ){
-            // NOTE: if info!=0, the eigenvalue computation failed and 
-            // we cannot assure there is a feasible first iteration
-            DTIFromEigs( sqrt(eigval[0]), sqrt(eigval[1]), sqrt(eigval[2]), eigvec, xr );
-            xr[6] = x[6];
-            IndexType success = dtiLMFit( G, &(io->signal[i*G]), lSi, lSiw,
-                                          A, A2, (BufferType)ATA2, (BufferType)ATA3,
-                                          (BufferType)xr, (BufferType)xr2, (BufferType)x2,
-                                          (IndexBuffer)pivot1, (IndexBuffer)pivot2, lwork, work2,
-                                          params );
-            if(success==0){
-                squareDTI( (BufferType)xr, (BufferType)x );
-                x[6] = xr[6];
-            }
-        }
-        //---------------------------------------------------------------------
-        // At this point, we can copy the outputs to the proper place:
-        memcpy( &(io->dti[6*i]), x, 6*sizeof(ElementType) );
-        io->s0[i] = exp(scale*x[6]);
     }
-#if defined(_HAS_POSIX_THREADS)
-    omp_set_num_threads(omp_mthreads);
-#endif
+    while( start < args->getN() );
+    
+    blas_num_threads(blas_threads);
+    
     // Free memory previously allocated
     delete[] lSi;
     delete[] lSiw;
@@ -402,7 +375,8 @@ void* signal2dti_process_fcn( void* inargs )
     delete[] AT;
     delete[] piA;
     delete[] wi;
-    return (void*)NULL;
+    
+    return (THFCNRET)NULL;
 }
 
 IndexType dtiLMFit( const SizeType G, const BufferType Si, BufferType Si2, BufferType Si3,

@@ -17,14 +17,9 @@
 #include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/posODFsMaths.h"
 #include "../mathsmex/mexToMathsTypes.h"
+#include "../threads/threadHelper.h"
 
-#if defined(_HAS_POSIX_THREADS)
-#include <pthread.h>
-#include <unistd.h>
-#include "omp.h" // Threads management with Lapack/BLAS
-#endif
-
-typedef struct{
+typedef struct IOData{
     BufferType  E;
     BufferType  lambda;
     BufferType  pshell;
@@ -37,20 +32,19 @@ typedef struct{
     BufferType  conderr;
 } IOData;
 
-typedef struct{
-    unsigned int                     tid;    // Which thread is being run?
-    unsigned int                     nth;    // What is the total number of threads?
-    SizeType                         FOV;    // The number of voxels to process
+class ThArgs : public DMRIThreader
+{
+public:
     SizeType                         M;      // The number of shells in the gradients scheme
     char                             algorithm;
     posODFs::ProblemFeatures*        features;
     posODFs::WignerSymbols*          wigner;
     posODFs::ODFAlgorithmParameters* parameters;
     IOData*                          io;
-} ThArgs;
+};
 
 
-void* posodfsh_process_fcn( void* );
+THFCNRET posodfsh_process_fcn( void* );
 
 /* The gateway function */
 void mexFunction( int nlhs, mxArray *plhs[],
@@ -183,15 +177,11 @@ void mexFunction( int nlhs, mxArray *plhs[],
     ElementType psi0eps = 0.01*0.01;
     mxArray* mxpsi0eps = mxGetField( prhs[5], 0, "psi0eps");
     if( mxpsi0eps!=NULL ){ psi0eps = mxGetScalar(mxpsi0eps); }
-    // ---
-#if defined(_HAS_POSIX_THREADS)
-    unsigned int maxthreads = sysconf(_SC_NPROCESSORS_CONF);
+    //=======================================================================================
+    unsigned int maxthreads = get_number_of_threads( 1e6 );
     mxArray* mxmaxthreads = mxGetField( prhs[5], 0, "maxthreads");
     if( mxmaxthreads!=NULL )
         maxthreads = ( (unsigned int)mxGetScalar(mxmaxthreads)<maxthreads ? (unsigned int)mxGetScalar(mxmaxthreads) : maxthreads );
-#else
-    unsigned int maxthreads = 1;
-#endif
     //=======================================================================================
     // Set the problem features:
     posODFs::ProblemFeatures features;
@@ -266,59 +256,41 @@ void mexFunction( int nlhs, mxArray *plhs[],
         io.conderr = mxGetDoubles(plhs[5]);
     }
     else
-        io.conderr = (BufferType)NULL;    
+        io.conderr = (BufferType)NULL;
+
     //=======================================================================================
-    // Put all the information together in the threaded structure
-    ThArgs* args = new ThArgs[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        args[tid].tid        = tid;
-        args[tid].nth        = maxthreads;
-        args[tid].FOV        = FOV;
-        args[tid].M          = M;
-        args[tid].algorithm  = algorithm[0];
-        args[tid].features   = &features;
-        args[tid].wigner     = &wigner;
-        args[tid].parameters = &parameters;
-        args[tid].io         = &io;       
-    }
-#if defined(_HAS_POSIX_THREADS)
+    // Use the helper class to pass arguments. Inherited values:
+    ThArgs threader;
+    threader.setProcessSize( FOV, 20 );
+    // Own values:
+    threader.M          = M;
+    threader.algorithm  = algorithm[0];
+    threader.features   = &features;
+    threader.wigner     = &wigner;
+    threader.parameters = &parameters;
+    threader.io         = &io;
     //=======================================================================================
-    pthread_t* threads = new pthread_t[maxthreads];
-    int*       rets    = new int[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        rets[tid] = pthread_create(
-            &(threads[tid]),
-            NULL,
-            posodfsh_process_fcn, 
-            (void*)(&args[tid])    );
-    }
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        pthread_join( threads[tid], NULL);
-    }
-    delete[] threads;
-    delete[] rets;
-#else
-    posodfsh_process_fcn( (void*)(&args[0]) );
-#endif
+    threader.threadedProcess( maxthreads, posodfsh_process_fcn );
+    //=======================================================================================
+    
     posODFs::destroyWignerSymbols( &wigner );
-    delete[] args;
+    
     return;
 }
 
-void* posodfsh_process_fcn( void* inargs )
+THFCNRET posodfsh_process_fcn( void* inargs )
 {
     // Retrive the structure with all the parameters.
     ThArgs* args = (ThArgs*)inargs;
-#if defined(_HAS_POSIX_THREADS)
+
     // Note: this call is crucial so that subsequent calls to
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
     // peformance. In non-POSIX systems, however, we don't
-    // externally create threads and we cab let Open MP do its
+    // externally create threads and we can let Open MP do its
     // stuff.
-    int omp_mthreads = omp_get_max_threads();
-    omp_set_num_threads(1);
-#endif
+    unsigned int blas_threads = blas_num_threads(1);
+    
     // Convenience constants:
     SizeType N = args->features->N;
     SizeType M = args->M;
@@ -347,101 +319,109 @@ void* posodfsh_process_fcn( void* inargs )
         posODFs::createLMWorkBuffers( &lmwork, N, L );
     if( (args->algorithm=='N') || (args->algorithm=='C') )
         posODFs::createNRWorkBuffers( &nrwork, N, L );
-    // Loop through the voxels according to an interleaved
-    // scheme for which the i-th thread processes only those
-    // voxels whose position in the buffer modulus nth is i,
-    // with nth the number of threads
+    // ---------------------------------------------------------------
     int niters; // The number of iterations it took to converge
-    for(  IndexType i=(IndexType)(args->tid); i<(IndexType)(args->FOV); i+=(args->nth) ){
-        // First, copy voxel-dependent values to the appropriate buffers:
-        memcpy(
-            voxel.E,
-            &(args->io->E[i*N]),
-            N*sizeof(ElementType)
-        );
-        memcpy(
-            voxel.lambda,
-            &(args->io->lambda[i*(L+1)*M]),
-            (L+1)*M*sizeof(ElementType)
-        );
-        memcpy(
-            voxel.psi,
-            &(args->io->psi0[i*K]),
-            K*sizeof(ElementType)
-        );
-        // Now we can call the appropriate optimization routine/routines
-        if( (args->algorithm=='L') || (args->algorithm=='C') ){
-            niters = posODFs::LMFitPositiveODF(
-                args->features,
-                args->wigner,
-                &voxel,
-                args->parameters,
-                &lmwork,
-                &Q,
-                &gradnorm
-            );
-            // No matter if the algorithm converges or not, we can securely copy
-            // its result to the output buffer, since Levenberg-Marquardt's will
-            // always check if each iteration improves the cost function, or will
-            // be reverted otherwise:
+    // Loop through the voxels
+    IndexType start = 0;
+    IndexType end   = 0;
+    do{
+        // Claim a new block of data to process within this thread:
+        args->claimNewBlock( &start, &end );
+        // Process all pixels in the block:
+        for( IndexType i=start; i<end; ++i ){
+            // First, copy voxel-dependent values to the appropriate buffers:
             memcpy(
-                &(args->io->psi[i*K]),
+                voxel.E,
+                &(args->io->E[i*N]),
+                N*sizeof(ElementType)
+            );
+            memcpy(
+                voxel.lambda,
+                &(args->io->lambda[i*(L+1)*M]),
+                (L+1)*M*sizeof(ElementType)
+            );
+            memcpy(
                 voxel.psi,
+                &(args->io->psi0[i*K]),
                 K*sizeof(ElementType)
             );
-        }
-        if( (args->algorithm=='N') || (args->algorithm=='C') ){
-            // Whether the algorithm is 'N' or 'C', voxel.psi contains
-            // a proper initial iteration (the output of L-M's algorithm
-            // or the one passed by the calling function
-            niters = posODFs::NRFitPositiveODF(
-                args->features,
-                args->wigner,
-                &voxel,
-                args->parameters,
-                &nrwork,
-                &Q,
-                &gradnorm,
-                &conderr
-            );
-            // In this case we can copy the output back only if the iterations
-            // converged, since Newton-Raphson's algorithm will not check if the
-            // iterations succeeded or not:
-            if(niters>=0){
+            // Now we can call the appropriate optimization routine/routines
+            if( (args->algorithm=='L') || (args->algorithm=='C') ){
+                niters = posODFs::LMFitPositiveODF(
+                    args->features,
+                    args->wigner,
+                    &voxel,
+                    args->parameters,
+                    &lmwork,
+                    &Q,
+                    &gradnorm
+                );
+                // No matter if the algorithm converges or not, we can securely copy
+                // its result to the output buffer, since Levenberg-Marquardt's will
+                // always check if each iteration improves the cost function, or will
+                // be reverted otherwise:
                 memcpy(
                     &(args->io->psi[i*K]),
                     voxel.psi,
                     K*sizeof(ElementType)
                 );
             }
+            if( (args->algorithm=='N') || (args->algorithm=='C') ){
+                // Whether the algorithm is 'N' or 'C', voxel.psi contains
+                // a proper initial iteration (the output of L-M's algorithm
+                // or the one passed by the calling function
+                niters = posODFs::NRFitPositiveODF(
+                    args->features,
+                    args->wigner,
+                    &voxel,
+                    args->parameters,
+                    &nrwork,
+                    &Q,
+                    &gradnorm,
+                    &conderr
+                );
+                // In this case we can copy the output back only if the iterations
+                // converged, since Newton-Raphson's algorithm will not check if the
+                // iterations succeeded or not:
+                if(niters>=0){
+                    memcpy(
+                        &(args->io->psi[i*K]),
+                        voxel.psi,
+                        K*sizeof(ElementType)
+                    );
+                }
+            }
+            // If necessary, return the number of iterations it took to converge:
+            if( args->io->nit != (BufferType)NULL )
+                args->io->nit[i] = niters;
+            // If necessary, return the Lagrange multiplier
+            if( args->io->mu != (BufferType)NULL ){
+                if(niters>=0)
+                    args->io->mu[i] = voxel.mu;
+                else
+                    args->io->mu[i] = NAN;
+            }
+            // If necessary, return the final cost
+            if( args->io->Q != (BufferType)NULL )
+                args->io->Q[i] = Q;
+            // If necessary, return the final value of the gradient
+            if( args->io->gradnorm != (BufferType)NULL )
+                args->io->gradnorm[i] = gradnorm;
+            // If necessary, return the final mismatch in the unit norm constraint
+            if( args->io->conderr != (BufferType)NULL )
+                args->io->conderr[i] = conderr;
         }
-        // If necessary, return the number of iterations it took to converge:
-        if( args->io->nit != (BufferType)NULL )
-            args->io->nit[i] = niters;
-        // If necessary, return the Lagrange multiplier
-        if( args->io->mu != (BufferType)NULL ){
-            if(niters>=0)
-                args->io->mu[i] = voxel.mu;
-            else
-                args->io->mu[i] = NAN;
-        }
-        // If necessary, return the final cost
-        if( args->io->Q != (BufferType)NULL )
-            args->io->Q[i] = Q;
-        // If necessary, return the final value of the gradient
-        if( args->io->gradnorm != (BufferType)NULL )
-            args->io->gradnorm[i] = gradnorm;
-        // If necessary, return the final mismatch in the unit norm constraint
-        if( args->io->conderr != (BufferType)NULL )
-            args->io->conderr[i] = conderr;
+
     }
+    while( start < args->getN() );
+
     posODFs::destroyVoxelFeatures( &voxel );
     if( (args->algorithm=='L') || (args->algorithm=='C') )
         posODFs::destroyLMWorkBuffers( &lmwork );
     if( (args->algorithm=='N') || (args->algorithm=='C') )
         posODFs::destroyNRWorkBuffers( &nrwork );
-#if defined(_HAS_POSIX_THREADS)
-    omp_set_num_threads(omp_mthreads);
-#endif
-    return (void*)NULL;
+
+    blas_num_threads(blas_threads);
+    
+    return (THFCNRET)NULL;
 }

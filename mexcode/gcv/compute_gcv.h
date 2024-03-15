@@ -14,7 +14,7 @@
 namespace gcv
 {
 
-typedef struct{
+typedef struct GCVParams{
     double lambda0;        // The initial value of the reg. param.
     double lambdastep;     // The reg. param. is updated as lambda <- lambdastep*lambda
     unsigned int maxvals;  // Maximum number of reg. param. values to try

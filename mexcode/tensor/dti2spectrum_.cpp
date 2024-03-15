@@ -14,14 +14,9 @@
 #include "math.h"
 #include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/mexToMathsTypes.h"
+#include "../threads/threadHelper.h"
 
-#if defined(_HAS_POSIX_THREADS)
-#include <pthread.h>
-#include <unistd.h>
-#include "omp.h" // Threads management with Lapack/BLAS
-#endif
-
-typedef struct{
+typedef struct EigIOData{
     // Input:
     BufferType dti;
     // Output:
@@ -33,15 +28,14 @@ typedef struct{
     BufferType e2;
 } EigIOData;
 
-typedef struct{
-    unsigned int tid;    // Which thread is being run?
-    unsigned int nth;    // What is the total number of threads?
-    SizeType N;          // The number of voxels to process
+class ThArgs : public DMRIThreader
+{
+public:
     char* mode;          // Compute (or not) the eigenvectors
     EigIOData* io;
-} ThArgs;
+};
 
-void* dti2spectrum_process_fcn( void* );
+THFCNRET dti2spectrum_process_fcn( void* );
 
 /* The gateway function */
 void mexFunction( int nlhs, mxArray *plhs[],
@@ -106,62 +100,34 @@ void mexFunction( int nlhs, mxArray *plhs[],
         mode[0] = 'N';
     }
     //=======================================================================================
-#if defined(_HAS_POSIX_THREADS)
-    unsigned int maxthreads = sysconf(_SC_NPROCESSORS_CONF);
-    maxthreads = ( (unsigned int)mxGetScalar(prhs[1])<maxthreads ? (unsigned int)mxGetScalar(prhs[1]) : maxthreads );
-#else
-    unsigned int maxthreads = 1;
-#endif
+    unsigned int maxthreads = get_number_of_threads( (unsigned int)mxGetScalar(prhs[1]) );
     //=======================================================================================
-    // Put all the information together in the threaded structure
-    ThArgs* args = new ThArgs[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        args[tid].tid        = tid;
-        args[tid].nth        = maxthreads;
-        args[tid].N          = N;
-        args[tid].mode       = mode;
-        args[tid].io         = &io;
-    }
-#if defined(_HAS_POSIX_THREADS)
+    // Use the helper class to pass arguments. Inherited values:
+    ThArgs threader;
+    threader.setProcessSize( N, 20 );
+    // Own values:
+    threader.mode = mode;
+    threader.io   = &io;
     //=======================================================================================
-    pthread_t* threads = new pthread_t[maxthreads];
-    int*       rets    = new int[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        rets[tid] = pthread_create(
-            &(threads[tid]),
-            NULL,
-            dti2spectrum_process_fcn, 
-            (void*)(&args[tid])    );
-    }
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        pthread_join( threads[tid], NULL);
-    }
-    delete[] threads;
-    delete[] rets;
-#else
-    dti2spectrum_process_fcn( (void*)(&args[0]) );
-#endif
-    delete[] args;
+    threader.threadedProcess( maxthreads, dti2spectrum_process_fcn );
+    //=======================================================================================
     return;
 }
 
-void* dti2spectrum_process_fcn( void* inargs )
+THFCNRET dti2spectrum_process_fcn( void* inargs )
 {
     // Retrieve the structure with all the parameters.
     ThArgs* args = (ThArgs*)inargs;
     EigIOData* io = args->io;
-#if defined(_HAS_POSIX_THREADS)
+
     // Note: this call is crucial so that subsequent calls to
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
     // peformance. In non-POSIX systems, however, we don't
-    // externally create threads and we cab let Open MP do its
+    // externally create threads and we can let Open MP do its
     // stuff.
-    int omp_mthreads = omp_get_max_threads();
-    omp_set_num_threads(1);
-#endif
-    // Convenience constants:
-    SizeType N = args->N;
+    unsigned int blas_threads = blas_num_threads(1);
+    
     // Allocate auxiliar buffers for computations
     // ---------------------------------------------------------------
     // Allocate memory to compute eigenvalues and eigenvectors
@@ -173,48 +139,52 @@ void* dti2spectrum_process_fcn( void* inargs )
     ElementType work[9]; // According to Lapack's docs for dspev
     ElementType nanval = NAN;
     // ---------------------------------------------------------------
-    // Loop through the voxels according to an interleaved
-    // scheme for which the i-th thread processes only those
-    // voxels whose position in the buffer modulus nth is i,
-    // with nth the number of threads
-    for(  IndexType i=(IndexType)(args->tid); i<(IndexType)(args->N); i+=(args->nth) ){
-        //---------------------------------------------------------------------
-        // Copy the current block:
-        memcpy( (BufferType)dti, &(io->dti[6*i]), 6*sizeof(ElementType) );
-        //---------------------------------------------------------------------
-        // Call Lapack's dspev:
-        dspev( args->mode, "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info );
-        //---------------------------------------------------------------------
-        // Fill the outputs:
-        // NOTE: dspev return the eigenvalues in ascending order, but the DTI
-        //       convention is the opposite
-        if(info==0){
-            io->l0[i] = eigval[2];
-            io->l1[i] = eigval[1];
-            io->l2[i] = eigval[0];
-            if(io->e0!=NULL)
-                memcpy( &(io->e0[3*i]), (BufferType)&(eigvec[6]), 3*sizeof(ElementType) );
-            if(io->e1!=NULL)
-                memcpy( &(io->e1[3*i]), (BufferType)&(eigvec[3]), 3*sizeof(ElementType) );
-            if(io->e2!=NULL)
-                memcpy( &(io->e2[3*i]), (BufferType)&(eigvec[0]), 3*sizeof(ElementType) );
+    // Loop through the voxels
+    IndexType start = 0;
+    IndexType end   = 0;
+    do{
+        // Claim a new block of data to process within this thread:
+        args->claimNewBlock( &start, &end );
+        // Process all pixels in the block:
+        for( IndexType i=start; i<end; ++i ){
+            //---------------------------------------------------------------------
+            // Copy the current block:
+            memcpy( (BufferType)dti, &(io->dti[6*i]), 6*sizeof(ElementType) );
+            //---------------------------------------------------------------------
+            // Call Lapack's dspev:
+            dspev( args->mode, "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info );
+            //---------------------------------------------------------------------
+            // Fill the outputs:
+            // NOTE: dspev return the eigenvalues in ascending order, but the DTI
+            //       convention is the opposite
+            if(info==0){
+                io->l0[i] = eigval[2];
+                io->l1[i] = eigval[1];
+                io->l2[i] = eigval[0];
+                if(io->e0!=NULL)
+                    memcpy( &(io->e0[3*i]), (BufferType)&(eigvec[6]), 3*sizeof(ElementType) );
+                if(io->e1!=NULL)
+                    memcpy( &(io->e1[3*i]), (BufferType)&(eigvec[3]), 3*sizeof(ElementType) );
+                if(io->e2!=NULL)
+                    memcpy( &(io->e2[3*i]), (BufferType)&(eigvec[0]), 3*sizeof(ElementType) );
+            }
+            else{
+                io->l0[i] = nanval;
+                io->l1[i] = nanval;
+                io->l2[i] = nanval;
+                if(io->e0!=NULL)
+                    io->e0[3*i] = io->e0[3*i+1] = io->e0[3*i+2] = nanval;
+                if(io->e1!=NULL)
+                    io->e1[3*i] = io->e1[3*i+1] = io->e1[3*i+2] = nanval;
+                if(io->e2!=NULL)
+                    io->e2[3*i] = io->e2[3*i+1] = io->e2[3*i+2] = nanval;
+            }
+            //---------------------------------------------------------------------
         }
-        else{
-            io->l0[i] = nanval;
-            io->l1[i] = nanval;
-            io->l2[i] = nanval;
-            if(io->e0!=NULL)
-                io->e0[3*i] = io->e0[3*i+1] = io->e0[3*i+2] = nanval; 
-            if(io->e1!=NULL)
-                io->e1[3*i] = io->e1[3*i+1] = io->e1[3*i+2] = nanval;
-            if(io->e2!=NULL)
-                io->e2[3*i] = io->e2[3*i+1] = io->e2[3*i+2] = nanval;
-        }
-        //---------------------------------------------------------------------
     }
-#if defined(_HAS_POSIX_THREADS)
-    omp_set_num_threads(omp_mthreads);
-#endif
-    // Free memory previously allocated
-    return (void*)NULL;
+    while( start < args->getN() );
+
+    blas_num_threads(blas_threads);
+    
+    return (THFCNRET)NULL;
 }

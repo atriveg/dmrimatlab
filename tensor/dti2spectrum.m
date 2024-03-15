@@ -23,8 +23,10 @@ function [u1,u2,u3,l1,l2,l3] = dti2spectrum( tensor, varargin )
 %
 %      clip: wether (true) or not (false) clip negative eigenvalues (if
 %         present) to 0 (default: false).
-%      maxthreads: the maximum number of threads to use in POSIX systems
-%         (default: automatically determined).
+%      maxthreads: the algorithm is run with multiple threads. This is the 
+%         maximum allowed number of threads, which can indeed be reduced if
+%         it exceeds the number of logical cores (default: the number of 
+%         logical cores in the machine).
 %      mask: a MxNxP array of logicals. Only those voxels where mask is
 %         true are processed, the others are filled with [0,0,1].
 

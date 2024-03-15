@@ -70,8 +70,10 @@ function [tensor,S0] = atti2dti( atti, gi, bi, varargin )
 %         false).
 %      mask: a MxNxP array of logicals. Only those voxels where mask is
 %         true are processed, the others are filled with zeros.
-%      maxthreads: only for POSIX systems, the maximum number of threads
-%         allowed (default: automatically determine).
+%      maxthreads: the algorithm is run with multiple threads. This is the 
+%         maximum allowed number of threads, which can indeed be reduced if
+%         it exceeds the number of logical cores (default: the number of 
+%         logical cores in the machine).
 
 %%% -----------------------------------------------------------------------
 % Check the mandatory input argments:

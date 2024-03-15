@@ -64,10 +64,10 @@
 %       opts.psi0eps: for L-M's, the minimum value allowed for psi(0,0),
 %          the DC component of the squared root of the ODF (default:
 %          1.0e-4).
-%       opts.maxthreads: ONLY IN POSIX SYSTEMS the algorithm is run with
-%          multiple threads. This is the maximum allowed number of threads,
-%          which can indeed be reduced if it exceeds the number of logical
-%          cores (default: the number of logical cores in the machine).
+%       opt.maxthreads: the algorithm is run with multiple threads. This is
+%         the maximum allowed number of threads, which can indeed be
+%         reduced if it exceeds the number of logical cores (default: the
+%         number of logical cores in the machine).
 %
 % OUTPUTS:
 %

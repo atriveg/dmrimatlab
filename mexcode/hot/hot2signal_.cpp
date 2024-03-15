@@ -15,18 +15,14 @@
 #include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/sh2hot.h"
 #include "../mathsmex/mexToMathsTypes.h"
+#include "../threads/threadHelper.h"
 
-#if defined (_HAS_POSIX_THREADS)
-#include <pthread.h>
-#include <unistd.h>
-#include "omp.h" // Threads management with Lapack/BLAS
-#endif
-
-typedef struct{
+class ThArgs : public DMRIThreader
+{
+public:
     unsigned int K;     // (L+1)(L+2)/2;
     unsigned int L;
     unsigned int G;
-    unsigned long N;    // The number of voxels to process
     unsigned int* nx;
     unsigned int* ny;
     unsigned int* nz;
@@ -36,11 +32,9 @@ typedef struct{
     double* z;
     BufferType hotin;   // Size N X (L+1)(L+2)/2, where N is the number of voxels. INPUT
     BufferType evals;   // Size N X 1, where N is the number of voxels. OUTPUT
-    unsigned int tid;   // Which thread is being run?
-    unsigned int nth;   // What is the total number of threads?
-} ThArgs;
+};
 
-void* hot2signal_process_fcn( void* );
+THFCNRET hot2signal_process_fcn( void* );
 
 /** The gateway function:
  * INPUTS:
@@ -93,12 +87,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
     unsigned int G = dims2[0];
     //=======================================================================================
     //=======================================================================================
-#if defined(_HAS_POSIX_THREADS)
-    unsigned int maxthreads = sysconf(_SC_NPROCESSORS_CONF);
-    maxthreads = ( (unsigned int)mxGetScalar(prhs[2])<maxthreads ? (unsigned int)mxGetScalar(prhs[2]) : maxthreads );
-#else
-    unsigned int maxthreads = 1;
-#endif
+    unsigned int maxthreads = get_number_of_threads( (unsigned int)mxGetScalar(prhs[2]) );
     //=======================================================================================
     //=======================================================================================
     if( nlhs>3 )
@@ -152,45 +141,24 @@ void mexFunction( int nlhs, mxArray *plhs[],
         z[g] = mxGetDoubles(prhs[1])[g+2*G];
     }
     //=======================================================================================
-    // Put all the information together in the threaded structure
-    ThArgs* args = new ThArgs[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        args[tid].K = K;
-        args[tid].L = L;
-        args[tid].G = G;
-        args[tid].N = dims[0];
-        args[tid].nx = nx;
-        args[tid].ny = ny;
-        args[tid].nz = nz;
-        args[tid].mu = mu;
-        args[tid].x = x;
-        args[tid].y = y;
-        args[tid].z = z;
-        args[tid].hotin = mxGetDoubles( prhs[0] );
-        args[tid].evals = mxGetDoubles( plhs[0] );
-        args[tid].tid = tid;
-        args[tid].nth = maxthreads;
-    }
+    // Use the helper class to pass arguments. Inherited values:
+    ThArgs threader;
+    threader.setProcessSize( dims[0], 20 );
+    // Own values:
+    threader.K = K;
+    threader.L = L;
+    threader.G = G;
+    threader.nx = nx;
+    threader.ny = ny;
+    threader.nz = nz;
+    threader.mu = mu;
+    threader.x = x;
+    threader.y = y;
+    threader.z = z;
+    threader.hotin = mxGetDoubles( prhs[0] );
+    threader.evals = mxGetDoubles( plhs[0] );
     //=======================================================================================
-#if defined(_HAS_POSIX_THREADS)
-    //=======================================================================================
-    pthread_t* threads = new pthread_t[maxthreads];
-    int*       rets    = new int[maxthreads];
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        rets[tid] = pthread_create(
-            &(threads[tid]),
-            NULL,
-            hot2signal_process_fcn, 
-            (void*)(&args[tid])    );
-    }
-    for( unsigned int tid=0; tid<maxthreads; ++tid ){
-        pthread_join( threads[tid], NULL);
-    }
-    delete[] threads;
-    delete[] rets;
-#else
-    hot2signal_process_fcn( (void*)(&args[0]) );
-#endif
+    threader.threadedProcess( maxthreads, hot2signal_process_fcn );
     //=======================================================================================
     delete[] x;
     delete[] y;
@@ -199,41 +167,50 @@ void mexFunction( int nlhs, mxArray *plhs[],
     delete[] ny;
     delete[] nz;
     delete[] mu;
-    delete[] args;
     //=======================================================================================
     return;
 }
 
-void* hot2signal_process_fcn( void* inargs )
+THFCNRET hot2signal_process_fcn( void* inargs )
 {
     ThArgs* args = (ThArgs*)inargs;
+    SizeType N = args->getN();
     BufferType in = new ElementType[args->K];
     BufferType out = new ElementType[args->G];
-#if defined(_HAS_POSIX_THREADS)
+
     // Note: this call is crucial so that subsequent calls to
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
     // peformance. In non-POSIX systems, however, we don't
-    // externally create threads and we cab let Open MP do its
+    // externally create threads and we can let Open MP do its
     // stuff.
-    int omp_mthreads = omp_get_max_threads();
-    omp_set_num_threads(1);
-#endif
-    for( SizeType i=(args->tid); i<(args->N); i+=(args->nth) ){
-        // Fill input:
-        for( SizeType k1=0; k1<(SizeType)(args->K); ++k1 )
-            in[k1] = args->hotin[k1*(args->N)+i];
-        // Evaluate:
-        sh2hot::evaluateHOT( args->G, args->x, args->y, args->z,
-                             out, args->L, args->nx, args->ny, args->nz, args->mu, in );
-        // Fill the output:
-        for( SizeType k2=0; k2<(SizeType)(args->G); ++k2 )
-            args->evals[k2*(args->N)+i] = out[k2];
+    unsigned int blas_threads = blas_num_threads(1);
+    
+    // ---------------------------------------------------------------
+    // Loop through the voxels
+    IndexType start = 0;
+    IndexType end   = 0;
+    do{
+        // Claim a new block of data to process within this thread:
+        args->claimNewBlock( &start, &end );
+        // Process all pixels in the block:
+        for( IndexType i=start; i<end; ++i ){
+            // Fill input:
+            for( SizeType k1=0; k1<(SizeType)(args->K); ++k1 )
+                in[k1] = args->hotin[k1*N+i];
+            // Evaluate:
+            sh2hot::evaluateHOT( args->G, args->x, args->y, args->z,
+                                out, args->L, args->nx, args->ny, args->nz, args->mu, in );
+            // Fill the output:
+            for( SizeType k2=0; k2<(SizeType)(args->G); ++k2 )
+                args->evals[k2*N+i] = out[k2];
+        }
     }
-#if defined(_HAS_POSIX_THREADS)
-    omp_set_num_threads(omp_mthreads);
-#endif
+    while( start < N );
+
+    blas_num_threads(blas_threads);
+    
     delete[] in;
     delete[] out;
-    return (void*)NULL;
+    return (THFCNRET)NULL;
 }

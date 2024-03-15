@@ -13,19 +13,36 @@
 #include "math.h"
 #include "../mathsmex/sphericalHarmonics.h"
 #include "../mathsmex/mexToMathsTypes.h"
+#include "../threads/threadHelper.h"
+
 #include <stdlib.h>
 #include <chrono>
 
-#if defined(_HAS_POSIX_THREADS)
-#include <pthread.h>
-#include <unistd.h>
-typedef struct drand48_data drand48_data;
+
+#if ( defined (__APPLE__) || defined (__MACH__) || defined (_WIN32) )
+#include <limits.h>
+#include <stdint.h>
+#include <sys/types.h>
+/**
+ * The re-entrant routine drand48_r seems to be unavailable for
+ * both MAC and Windows environments. We will mimick its implementation
+ * (taken from GNU Gnulib) to be able to generate "independent" random
+ * numbers from concurrent threads
+*/
+typedef struct _drand48_data_ {
+    unsigned short int __x[3] = {0,0,0};
+    unsigned short int __c = 0xb;     // 11
+    unsigned long long int __a = 0x5deece66d; // 25214903917
+} drand48_data;
+void seed48_r( unsigned short int seed16v[3], drand48_data* );
+int drand48_r( drand48_data*, double* );
 #else
-typedef int drand48_data;
-#include <cstdlib>
+typedef struct drand48_data drand48_data;
 #endif
 
-typedef struct{
+class ThArgs : public DMRIThreader
+{
+public:
     SizeType N;                // The number of sampels to generate
     SizeType Nth;              // The number of samples generated at this thread
     BufferType theta;          // The buffer (size N) where the theta coordinate is stored
@@ -36,7 +53,7 @@ typedef struct{
     unsigned short seed16v[3]; // Random generator seeding
     unsigned int tid;          // Which thread is being run?
     unsigned int nth;          // What is the total number of threads?
-} ThArgs;
+};
 
 ElementType shodf2samples_compute_c_from_coeffs( const BufferType, const BufferType, const SizeType );
 ElementType shodf2samples_compute_c_brute_force( const BufferType, const unsigned int );
@@ -44,7 +61,7 @@ void shodf2samples_seed( unsigned short* );
 void shodf2samples_randn3d( drand48_data*, double*, double*, double* );
 double shodf2samples_evalshodf( const BufferType, const unsigned int, const ElementType,
                                        const ElementType, BufferType, double*, double* );
-void* shodf2samples_process_fcn( void* );
+THFCNRET shodf2samples_process_fcn( void* );
 
 /* The gateway function */
 void mexFunction( int nlhs, mxArray *plhs[],
@@ -56,9 +73,10 @@ void mexFunction( int nlhs, mxArray *plhs[],
     //      prhs[1] (MANDATORY): The number of samples to generate, 1x1
     //      prhs[2] (OPTIONAL): Either c itself (1x1) or the factors to compute it (1xK)
     //      prhs[3] (OPTIONAL): A 1x3 vector to initialize the random number generator
+    //      prhs[4] (OPTIONAL): A 1x1 scalar with the number of threads to use
     // ---------------------
-    if( (nrhs<2) || (nrhs>4) )
-        mexErrMsgIdAndTxt("MyToolbox:shodf2samples:nrhs","Only 2, 3, or 4 input arguments allowed");
+    if( (nrhs<2) || (nrhs>5) )
+        mexErrMsgIdAndTxt("MyToolbox:shodf2samples:nrhs","Only 2 to 5 input arguments allowed");
     // ---------------------
     if( mxGetNumberOfDimensions(prhs[0]) != 2 )
         mexErrMsgIdAndTxt("MyToolbox:shodf2samples:dim","Input 1 must be 2-D");
@@ -85,7 +103,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
             c = mxGetDoubles( prhs[2] )[0];
         }
         else if( mxGetNumberOfElements(prhs[2]) < K ){
-            mexErrMsgIdAndTxt("MyToolbox:shodf2samples:dim","The length of input 3 is shorter that the number of SH coefficients ");
+            mexErrMsgIdAndTxt("MyToolbox:shodf2samples:dim","The length of input 3 is shorter that the number of SH coefficients");
         }
         else{
             if( mxGetNumberOfDimensions(prhs[2]) != 2 )
@@ -101,15 +119,31 @@ void mexFunction( int nlhs, mxArray *plhs[],
     // ---------------------
     unsigned short seed16v[3];
     if( nrhs>3 ){
-        if( mxGetNumberOfElements(prhs[3]) != 3 ){
-            mexErrMsgIdAndTxt("MyToolbox:shodf2samples:dim","Input 4 must be a 3-element vector ");
+        if( mxGetNumberOfElements(prhs[3]) == 0 ){
+            // Empty array passed -> auto-seed
+            shodf2samples_seed( (unsigned short*)seed16v );
         }
-        seed16v[0] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[3])[0]) % 0x1000000000000 );
-        seed16v[1] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[3])[1]) % 0x1000000000000 );
-        seed16v[2] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[3])[2]) % 0x1000000000000 );
+        else if( mxGetNumberOfElements(prhs[3]) == 3 ){
+            // Seedactually passed. Use it
+            seed16v[0] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[3])[0]) % 0x1000000000000 );
+            seed16v[1] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[3])[1]) % 0x1000000000000 );
+            seed16v[2] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[3])[2]) % 0x1000000000000 );
+        }
+        else{
+            // Weird size
+            mexErrMsgIdAndTxt("MyToolbox:shodf2samples:dim","Input 4 must be a 3-element vector or empty ");
+        }
     }
     else{
         shodf2samples_seed( (unsigned short*)seed16v );
+    }
+    // ---------------------
+    unsigned int maxthreads = 1000000;
+    if( nrhs>4 ){
+        if( mxGetNumberOfElements(prhs[4]) != 1 ){
+            mexErrMsgIdAndTxt("MyToolbox:shodf2samples:dim","Input 4 should be a scalar integer");
+        }
+        maxthreads = (unsigned int)( mxGetDoubles( prhs[4] )[0] );
     }
     //=======================================================================================
     // OUTPUTS:
@@ -142,118 +176,99 @@ void mexFunction( int nlhs, mxArray *plhs[],
     }
     delete[] dims;
     //=======================================================================================
-#if defined(_HAS_POSIX_THREADS)
+    maxthreads = get_number_of_threads( maxthreads );
+    if(maxthreads>N)
+        maxthreads = N;
     //=======================================================================================
-    unsigned int NTHREADS = sysconf(_SC_NPROCESSORS_CONF);
-    if(NTHREADS>N)
-        NTHREADS = N;
-    pthread_t* threads = new pthread_t[NTHREADS];
-    int*       rets    = new int[NTHREADS];
-    ThArgs*    args    = new ThArgs[NTHREADS];
-    for( unsigned int tid=0; tid<NTHREADS; ++tid ){
-        //===================================================================================
-        args[tid].N       = N;        //
-        args[tid].Nth     = 0;        //
-        args[tid].theta   = theta;    //
-        args[tid].phi     = phi;      //
-        args[tid].L       = L;        //
-        args[tid].SH      = SH;       //
-        args[tid].c       = c;        //
-        args[tid].seed16v[0] = (unsigned short)(   ( (unsigned long)seed16v[0] * (tid+1) * 7919 ) % 0x1000000000000 );
-        args[tid].seed16v[1] = (unsigned short)(   ( (unsigned long)seed16v[1] * (tid+1) * 6983 ) % 0x1000000000000 );
-        args[tid].seed16v[2] = (unsigned short)(   ( (unsigned long)seed16v[2] * (tid+1) * 3911 ) % 0x1000000000000 );
-        args[tid].tid     = tid;      //
-        args[tid].nth     = NTHREADS; //
-        //===================================================================================
-        rets[tid] = pthread_create(
-            &(threads[tid]),
-            NULL,
-            shodf2samples_process_fcn,
-            (void*)(&args[tid])    );
-        //===================================================================================
-    }
-    for( unsigned int tid=0; tid<NTHREADS; ++tid ){
-        //===================================================================================
-        pthread_join( threads[tid], NULL);
-        //===================================================================================
-    }
-    delete[] threads;
-    delete[] rets;
-    delete[] args;
-#else
-    ThArgs args;
-    args.N       = N;        //
-    args.Nth     = 0;        //
-    args.theta   = theta;    //
-    args.phi     = phi;      //
-    args.L       = L;        //
-    args.SH      = SH;       //
-    args.c       = c;        //
-    args.seed16v[0] = seed16v[0];
-    args.seed16v[1] = seed16v[1];
-    args.seed16v[2] = seed16v[2];
-    args.tid     = 0;        //
-    args.nth     = 1;        //
-    shodf2samples_process_fcn( (void*)&args );
-#endif
+    // Use the helper class to pass arguments. Inherited values:
+    ThArgs threader;
+    threader.setProcessSize( N, 20 );
+    // Own values:
+    threader.theta   = theta;    //
+    threader.phi     = phi;      //
+    threader.L       = L;        //
+    threader.SH      = SH;       //
+    threader.c       = c;        //
+    threader.seed16v[0] = seed16v[0];
+    threader.seed16v[1] = seed16v[1];
+    threader.seed16v[2] = seed16v[2];
+    //=======================================================================================
+    threader.threadedProcess( maxthreads, shodf2samples_process_fcn );
+    //=======================================================================================
+    return;
 }
 
-void* shodf2samples_process_fcn( void* inargs )
+THFCNRET shodf2samples_process_fcn( void* inargs )
 {
     ThArgs* args = (ThArgs*)inargs;
+    
+    // Get a unique thread ordinal to create different seeds for each thread
+    unsigned short seed16v[3];
+    unsigned int thid = args->getThid();
+    seed16v[0] = (unsigned short)(   ( (unsigned long)(args->seed16v[0]) * (thid+1) * 7919 ) % 0x1000000000000 );
+    seed16v[1] = (unsigned short)(   ( (unsigned long)(args->seed16v[1]) * (thid+1) * 6983 ) % 0x1000000000000 );
+    seed16v[2] = (unsigned short)(   ( (unsigned long)(args->seed16v[2]) * (thid+1) * 3911 ) % 0x1000000000000 );
+            
+    // Init the random number generator
     drand48_data rnd;
-#if defined(_HAS_POSIX_THREADS)
     // Re-entrant random number generator
-    seed48_r( args->seed16v, &rnd );
-#else
-    srand( (unsigned int)(args->seed16v[0])*(unsigned int)(args->seed16v[1]) + (unsigned int)(args->seed16v[2]) );
-#endif
+    seed48_r( seed16v, &rnd );
+    
     double x,y,z,r;
     double theta, phi;
     double sample,target;
-    IndexType pos;
+    
     BufferType Ylm  = new ElementType[shmaths::getNumberOfEvenAssociatedLegendrePolynomials(args->L)];
     double* buffer  = shmaths::allocateBufferForEvenAssociatedLegendrePolynomials(args->L);
     double* buffer2 = shmaths::allocateBufferForAssociatedLegendrePolynomials(args->L);
-    for( IndexType i=(IndexType)(args->tid); i<(IndexType)(args->N); i+=(args->nth) ){
-        SizeType iters = 0;
-        SizeType MAXITERS = (SizeType)::ceil(100*(args->c));
-        bool rejected = true;
-        while( rejected & (iters<MAXITERS) ){
-            // ----------------------------------------------------------
-            shodf2samples_randn3d( &rnd, &x, &y, &z );
-            r = ::sqrt(x*x+y*y+z*z);
-            if(r==0)
-                continue;
-            else{
-                theta = ::acos(z/r);
-                phi   = ::atan2( y, x );
-                if(phi<0)
-                    phi += 2*PI;
+    
+    IndexType pos;
+    SizeType MAXITERS = (SizeType)::ceil(100*(args->c));
+    
+    // ---------------------------------------------------------------
+    // Loop through the sample positions
+    IndexType start = 0;
+    IndexType end   = 0;
+    do{
+        // Claim a new block of data to process within this thread:
+        args->claimNewBlock( &start, &end );
+        // Process all pixels in the block:
+        for( IndexType i=start; i<end; ++i ){
+            SizeType iters = 0;
+            bool rejected = true;
+            while( rejected & (iters<MAXITERS) ){
+                // ----------------------------------------------------------
+                shodf2samples_randn3d( &rnd, &x, &y, &z );
+                r = ::sqrt(x*x+y*y+z*z);
+                if(r==0)
+                    continue;
+                else{
+                    theta = ::acos(z/r);
+                    phi   = ::atan2( y, x );
+                    if(phi<0)
+                        phi += 2*PI;
+                }
+                // ----------------------------------------------------------
+                drand48_r( &rnd, &sample );
+                sample *= (args->c) / (4*PI);
+                // ----------------------------------------------------------
+                pos    = 0;
+                target = shodf2samples_evalshodf( args->SH, args->L,
+                        phi, theta, Ylm, buffer, buffer2 );
+                rejected = (sample>target);
+                (args->theta)[i] = theta;
+                (args->phi)[i] = phi;
+                // ----------------------------------------------------------
+                ++iters;
             }
-            // ----------------------------------------------------------
-#if defined(_HAS_POSIX_THREADS)
-            drand48_r( &rnd, &sample );
-#else
-            sample = (double)(rand())/RAND_MAX;
-#endif
-            sample *= (args->c) / (4*PI);
-            // ----------------------------------------------------------
-            pos    = 0;
-            target = shodf2samples_evalshodf( args->SH, args->L,
-                                              phi, theta, Ylm, buffer, buffer2 );
-            rejected = (sample>target);
-            (args->theta)[i] = theta;
-            (args->phi)[i] = phi;
-            // ----------------------------------------------------------
-            ++iters;
         }
-        (args->Nth)++;
     }
+    while( start < args->getN() );
+    
     delete[] Ylm;
     delete[] buffer;
     delete[] buffer2;
-    return (void*)NULL;
+    return (THFCNRET)NULL;
 }
 
 ElementType shodf2samples_compute_c_from_coeffs( const BufferType SH, const BufferType coeffs, const SizeType K )
@@ -317,23 +332,16 @@ void shodf2samples_randn3d( drand48_data* rnd, double* x, double* y, double* z )
 
     // Use Box-Muller transform
     double u1, u2;
-#if defined(_HAS_POSIX_THREADS)
+
     drand48_r( rnd, &u1 );
     drand48_r( rnd, &u2 );
-#else
-    u1 = (double)(rand())/RAND_MAX;
-    u2 = (double)(rand())/RAND_MAX;
-#endif
     *x = ::sqrt( -2.0 * ::log(u1) ) * ::cos(2*PI*u2);
     *y = ::sqrt( -2.0 * ::log(u1) ) * ::sin(2*PI*u2);
-#if defined(_HAS_POSIX_THREADS)
+
     drand48_r( rnd, &u1 );
     drand48_r( rnd, &u2 );
-#else
-    u1 = (double)(rand())/RAND_MAX;
-    u2 = (double)(rand())/RAND_MAX;
-#endif
     *z = ::sqrt( -2.0 * ::log(u1) ) * ::cos(2*PI*u2);
+
     return;
 }
 
@@ -353,3 +361,43 @@ double shodf2samples_evalshodf(
         eval += ( Ylm[p] * SH[p] );
     return eval;
 }
+
+#if ( defined (__APPLE__) || defined (__MACH__) || defined (_WIN32) )
+/**
+ * The re-entrant routine drand48_r seems to be unavailable for
+ * both MAC and Windows environments. We will mimick its implementation
+ * (taken from GNU Gnulib) to be able to generate "independent" random
+ * numbers from concurrent threads
+*/
+void seed48_r( unsigned short int seed16v[3], drand48_data* rnd )
+{
+    rnd->__x[0] = seed16v[0];
+    rnd->__x[1] = seed16v[1];
+    rnd->__x[2] = seed16v[2];
+    rnd->__c = 0xb; // 11
+    rnd->__a = 0x5deece66d; // 25214903917
+    return;
+}
+
+/**
+* Implementation directly taken from the __erand48_r
+*/
+int drand48_r( drand48_data* rnd, double* x )
+{
+    /* Compute next state.  */
+    uint64_t X;
+    uint64_t result;
+    X = (uint64_t) rnd->__x[2] << 32 | (uint32_t) rnd->__x[1] << 16 | rnd->__x[0];
+    result = X * rnd->__a + rnd->__c;
+    rnd->__x[0] = result & 0xffff;
+    rnd->__x[1] = (result >> 16) & 0xffff;
+    rnd->__x[2] = (result >> 32) & 0xffff;
+    /* The GNU implementation is based on IEEE-754 representations
+     * of floating point numbers. Since ieee754.h is not present in
+     * Windows or MAC, use floating point arithmetic instead:
+     */
+    *x = (double)( result & 0xffffffffffff ) / (double)(0x1000000000000);
+    return 0;
+}
+
+#endif

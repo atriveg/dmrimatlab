@@ -7,15 +7,6 @@
 // - NOTE: for Mac, we have disabled lpthreads until we find a safe way to
 //         prevent BLAS/LAPACK from using their own inner threads
 
-/*
-#if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
-#define _HAS_POSIX_THREADS
-#endif
-*/
-#if defined (__unix__)
-#define _HAS_POSIX_THREADS
-#endif
-
 #if MX_HAS_INTERLEAVED_COMPLEX
 typedef mxDouble ElementType;
 #else

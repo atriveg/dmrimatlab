@@ -2,7 +2,7 @@
 clear;
 close('all');
 %clc;
-N  = 1e6;
+N  = 10e6;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 SH = [1,0.14,-0.25,0.13,-0.31,0.22];
 SH = SH./sqrt(sum(SH.*SH));
@@ -14,11 +14,11 @@ L = ( sqrt(9-4*(2-2*K)) - 3 )/2;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c1 = shodf2samples( SH, N );
 bds = bound_sh(L,10000);
-c2 = shodf2samples( SH, N, bds );
+c2 = shodf2samples( SH, N, bds, [], 1e6 );
 fprintf(1,'[Internally computed, brute force] c: %1.9f\n',c1);
 fprintf(1,'      [Computed from Y_l^m bounds] c: %1.9f\n',c2);
 tic;
-[theta,phi,c] = shodf2samples(SH,N);
+[theta,phi,c] = shodf2samples( SH, N, [], [], 1e6 );
 dirs = [theta,phi];
 fprintf(1,'%1.2g samples generated in %1.2f seconds (c: %1.9f)\n',N,toc,c);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

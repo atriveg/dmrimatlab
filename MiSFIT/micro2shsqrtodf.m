@@ -130,10 +130,10 @@ function [sh,nit,mu] = micro2shsqrtodf( atti, gi, bi, lpar, lperp, f, varargin )
 %         (default: 1.0e-5).
 %      psi0eps: for L-M's, the minimum value allowed for psi(0,0), the DC
 %         component of the squared root of the ODF (default: 1.0e-4).
-%      maxthreads: ONLY IN POSIX SYSTEMS the algorithm is run with
-%         multiple threads. This is the maximum allowed number of threads,
-%         which can indeed be reduced if it exceeds the number of logical
-%         cores (default: the number of logical cores in the machine).
+%      maxthreads: the algorithm is run with multiple threads. This is the 
+%         maximum allowed number of threads, which can indeed be reduced if
+%         it exceeds the number of logical cores (default: the number of 
+%         logical cores in the machine).
 
 % Check the mandatory input arguments:
 if(nargin<6)

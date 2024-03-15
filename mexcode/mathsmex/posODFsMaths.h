@@ -12,14 +12,14 @@
 
 namespace posODFs
 {
-    typedef struct{
+    typedef struct ProblemFeatures{
         SizeType N = 0;                  // Number of dMRI samples per voxel
         unsigned int L = 0;              // Maximum order of SH expansions for the (squared root of the) ODF
         double nu = 0.006;               // Laplacian penalty weighting
         BufferType Y = (BufferType)NULL; // The values of the SH for which the ODF is expanded, size Kp*N, for Kp=(2L+1)(2L+2)/2
     } ProblemFeatures;
     
-    typedef struct{ // To be retrieved with shmaths::computeNumberOfSquaredSHFactors in sphericalHarmonics.cxx
+    typedef struct WignerSymbols{ // To be retrieved with shmaths::computeNumberOfSquaredSHFactors in sphericalHarmonics.cxx
         SizeType      P  = 0;
         BufferType    xi = (BufferType)NULL;    // Size P, to be retrieved with shmaths::computeSquaredSHFactors in sphericalHarmonics.cxx
         IndexBuffer   k1 = (IndexBuffer)NULL;   // Size P, to be retrieved with shmaths::computeSquaredSHFactors in sphericalHarmonics.cxx
@@ -28,7 +28,7 @@ namespace posODFs
         unsigned int* l3 = (unsigned int*)NULL; // Size P, to be retrieved with shmaths::computeSquaredSHFactors in sphericalHarmonics.cxx
     } WignerSymbols;
     
-    typedef struct{
+    typedef struct VoxelFeatures{
         BufferType  E = (BufferType)NULL;       // The dMRI measurements, size N
         // The convolution factors are intended to be designed "shell-wise", i.e.
         // the N dMRI measurements are grouped in M subsets or "shells". Within 
@@ -42,17 +42,17 @@ namespace posODFs
         ElementType mu = 0.0;                   // The Lagrange multiplier
     } VoxelFeatures;
     
-    typedef struct{
+    typedef struct GradientInputs{
         BufferType delta = (BufferType)NULL; // The individual residuals, size N
         BufferType Delta = (BufferType)NULL; // The individual Laplacian contributions, size Kp=(2L+1)(2L+2)/2
     } GradientInputs;
     
-    typedef struct{
+    typedef struct HessianInputs{
         BufferType deltap = (BufferType)NULL; // Derivatives of delta, size N*K
         BufferType Deltap = (BufferType)NULL; // Derivatives of delta, size Kp*K
     } HessianInputs;
     
-    typedef struct{
+    typedef struct ODFAlgorithmParameters{
         int T = 200;                  // Maximum number of iterations
         unsigned int maxfails = 5;    // For Levenberg-Marquardt's, maximum numbe of consecutive failed iterations before exit
         ElementType thCost = 0.001;   // For Levenberg-Marquardt's, minimum allowed (successful) relative decrease in the cost function
@@ -63,7 +63,7 @@ namespace posODFs
         ElementType psi0eps = 0.0001; // The minimum squared value allowed for psi[0] (only for Levenberg-Marquardt's)
     } ODFAlgorithmParameters;
     
-    typedef struct{
+    typedef struct NRWorkBuffers{
         GradientInputs ginputs;
         HessianInputs  hinputs;
         BufferType gradient0 = (BufferType)NULL; // (K+1) x 1, the output of ComputeGradient()
@@ -79,7 +79,7 @@ namespace posODFs
         IndexBuffer pivot1 = (IndexBuffer)NULL;  // (K+1)*1
     } NRWorkBuffers;
     
-    typedef struct{
+    typedef struct LMWorkBuffers{
         BufferType delta0 = (BufferType)NULL;    // (N+Kp) x 1, as provided by ComputeResidual()
         BufferType delta1 = (BufferType)NULL;    // (N+Kp) x 1, as provided by ComputeResidual()
         BufferType jacobian = (BufferType)NULL;  // (N+Kp) x (K-1), as provided by ComputeJacobian()
