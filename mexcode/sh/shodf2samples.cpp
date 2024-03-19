@@ -180,9 +180,13 @@ void mexFunction( int nlhs, mxArray *plhs[],
     if(maxthreads>N)
         maxthreads = N;
     //=======================================================================================
+    unsigned int chunksz = (N/maxthreads)/20;
+    if(chunksz<1)
+        chunksz = 1;
+    //=======================================================================================
     // Use the helper class to pass arguments. Inherited values:
     ThArgs threader;
-    threader.setProcessSize( N, 20 );
+    threader.setProcessSize( N, chunksz );
     // Own values:
     threader.theta   = theta;    //
     threader.phi     = phi;      //

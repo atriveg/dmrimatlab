@@ -26,47 +26,19 @@ unsigned int blas_num_threads(const unsigned int nth)
      * that will interfere with the threads created by this package.
      * Otherwise, the overall number of threads will blow up dramatically
      * putting down the performance. 
+     *
+     * The way the number of threads may be controled depends on the SO
+     * where Matlab is running
      */
-#ifdef _HAS_MKL_BLAS
-
-#if defined (__unix__)
-    /**
-     * According to Intel's MKL documenation, a call to mkl_set_max_threads_local()
-     * should be the appropriate choice here. However, Matlab provides only
-     * a reduced subset of MKL routines, and the aforementioned is not one 
-     * of them. Seeting the environment variable "MKL_NUM_THREADS" will not
-     * work either, since the variable is read when the mkl library is loaded,
-     * then kept read only. Setting the OMP threads seems to do the trick
-     * (though it is documented that "races" might occur upon different calls
-     * to this routine.
-     */
+#if defined(_USE_MKL_THREAD_CONTROL) // Linux, Intel-based MAC
     if(nth==0)
-        return (unsigned int)( omp_get_max_threads() );
+        return (unsigned int)( mkl_serv_get_max_threads() );
     else{
-        unsigned int rnth = (unsigned int)( omp_get_max_threads() );
-        /**
-        * According to Intel's MKL documentation, the preferred way to
-        * avoid BLAS/LAPACK using their own threads is using the "local"
-        * set_num_threads function, so that it won't interfere with other 
-        * processes/threads using MKL.
-        *
-        * NOTE: this implies it will be necessarty to manually link against
-        * mkl.so when compiling:
-        */
+        unsigned int rnth = (unsigned int)( mkl_serv_get_max_threads() );
         mkl_serv_set_num_threads_local( (int)nth );
-        /**
-        * Otherwise, we should call OpenMP's set_num_threads, but it might
-        * collide with other threads using OpenMP:
-        */
-        // omp_set_num_threads( nth );
         return rnth;
     }
-#else
-    /**
-    * In Windows, however, it seems that MinGW is unable to dinamically
-    * link against mkl.dll (no mkl.lib available), so we have to rely 
-    * on the OpenMP implementation.
-    */
+#elif defined(_USE_OMP_THREAD_CONTROL) // Windows
     if(nth==0)
         return (unsigned int)( omp_get_max_threads() );
     else{
@@ -74,14 +46,7 @@ unsigned int blas_num_threads(const unsigned int nth)
         omp_set_num_threads( (int)nth );
         return rnth;
     }
-#endif
-
-#else
-    /**
-     * The default implementation for MAC OS is OpenBLAS, which provides 
-     * (according to the documentation) specific routines to set the number
-     * of computational threads:
-     */
+#elif defined(_USE_OPENBLAS_THREAD_CONTROL) // ARM MAC
     if(nth==0)
         return (unsigned int)( openblas_get_num_threads() );
     else{
