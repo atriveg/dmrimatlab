@@ -99,7 +99,14 @@ extern "C" {
 
 #else
 
-#error "Unable to determine a way to control BLAS usage of threads"
+/**
+ * In case none of the flags are passed, we silently ignore it. This
+ * scenario may be used whether if you don't need to control BLAS threads
+ * (because you're not using BLAS/LAPACK) or you need to implement your
+ * own method (for example, if you're liniking against a different BLAS
+ * implementation or you are compiling your software independently from
+ * Matlab
+ */
 
 #endif    
 

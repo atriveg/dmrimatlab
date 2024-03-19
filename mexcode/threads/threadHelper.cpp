@@ -54,6 +54,9 @@ unsigned int blas_num_threads(const unsigned int nth)
         openblas_set_num_threads( nth );
         return rnth;
     }
+#else
+    // Nothing to do here. Just return a reasonable value
+    return 1;
 #endif
 }
 

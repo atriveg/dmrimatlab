@@ -4,22 +4,25 @@
 
 % ------------------------------------------------------------------------------
 mtlroot = matlabroot;
+
 if(isunix)
+    trlinks = {'-lpthread'};
+    %%%
     libsdir = sprintf('%s/bin/glnxa64',mtlroot);
     mkllib  = sprintf('%s/mkl.so',libsdir);
-    blaslinks = {'-lmwlapack','-lmwblas'};
-    trlinks = {'-lpthread',mkllib};
-    trflags = {'CXXFLAGS="$CXXFLAGS -D_USE_MKL_THREAD_CONTROL"'};
+    blaslinks = {'-lmwlapack','-lmwblas',mkllib};
+    blasflags = {'CXXFLAGS="$CXXFLAGS -D_USE_MKL_THREAD_CONTROL"'};
 end
 
 if(ispc)
-    blaslinks = {'-lmwlapack','-lmwblas'};
     trlinks = {};
-    trflags = {'CXXFLAGS="$CXXFLAGS -fopenmp -D_USE_OMP_THREAD_CONTROL"','LDFLAGS="$LDFLAGS -fopenmp"'};
+    %%%
+    blaslinks = {'-lmwlapack','-lmwblas'};
+    blasflags = {'CXXFLAGS="$CXXFLAGS -fopenmp -D_USE_OMP_THREAD_CONTROL"','LDFLAGS="$LDFLAGS -fopenmp"'};
 end
 
 if( ismac )
-    blaslinks = {'-lmwlapack','-lmwblas'};
+    trlinks = {'-lpthread'};
     % Check if mkl.dylib is present. If it is the case, this is an old
     % Mac machine with an Intel processor, hence we can rely on MKL as
     % we do for linux (but we must explicitly tell the computer through
@@ -28,12 +31,12 @@ if( ismac )
     mkllib  = sprintf('%s/mkl.dylib',libsdir);
     if( exist(mkllib,'file') ~= 0 )
         % MAC with intel processor
-        trlinks = {'-lpthread',mkllib};
-        trflags = {'CXXFLAGS="$CXXFLAGS -D_USE_MKL_THREAD_CONTROL"'};
+        blaslinks = {'-lmwlapack','-lmwblas',mkllib};
+        blasflags = {'CXXFLAGS="$CXXFLAGS -D_USE_MKL_THREAD_CONTROL"'};
     else
         % MAC with ARM processor
-        trlinks = {'-lpthread','-lmwopenblas'};
-        trflags = {'CXXFLAGS="$CXXFLAGS -D_USE_OPENBLAS_THREAD_CONTROL"'};
+        blaslinks = {'-lmwlapack','-lmwblas','-lmwopenblas'};
+        blasflags = {'CXXFLAGS="$CXXFLAGS -D_USE_OPENBLAS_THREAD_CONTROL"'};
     end
 end
 % ------------------------------------------------------------------------------
@@ -83,7 +86,7 @@ modules(mid).name = 'signal2sqrtshodf';
 modules(mid).src = './sh';
 modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/matrixCalculus.cxx','../mathsmex/posODFsMaths.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = [ blaslinks, trlinks ];
-modules(mid).flags = trflags;
+modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/MiSFIT/utils'];
 modules(mid).ignore = false;
 mid = mid+1;
@@ -92,7 +95,7 @@ modules(mid).name = 'sh2squaredsh';
 modules(mid).src = './sh';
 modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = [ blaslinks, trlinks ];
-modules(mid).flags = trflags;
+modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/sh'];
 modules(mid).ignore = false;
 mid = mid+1;
@@ -101,7 +104,7 @@ modules(mid).name = 'shodf2samples';
 modules(mid).src = './sh';
 modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = trlinks;
-modules(mid).flags = trflags;
+modules(mid).flags = {};
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/sh'];
 modules(mid).ignore = false;
 mid = mid+1;
@@ -110,7 +113,7 @@ modules(mid).name = 'sh2hot_';
 modules(mid).src = './hot';
 modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot.cxx','../mathsmex/sh2hothardcodes.cxx','../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = [ blaslinks, trlinks ];
-modules(mid).flags = trflags;
+modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/hot'];
 modules(mid).ignore = false;
 mid = mid+1;
@@ -119,7 +122,7 @@ modules(mid).name = 'hot2sh_';
 modules(mid).src = './hot';
 modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot.cxx','../mathsmex/sh2hothardcodes.cxx','../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = [ blaslinks, trlinks ];
-modules(mid).flags = trflags;
+modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/hot'];
 modules(mid).ignore = false;
 mid = mid+1;
@@ -128,7 +131,7 @@ modules(mid).name = 'hot2signal_';
 modules(mid).src = './hot';
 modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot.cxx','../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = [ blaslinks, trlinks ];
-modules(mid).flags = trflags;
+modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/hot'];
 modules(mid).ignore = false;
 mid = mid+1;
@@ -137,7 +140,7 @@ modules(mid).name = 'atti2hydidsi_';
 modules(mid).src = './hydidsi';
 modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../gcv/compute_gcv.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = [ blaslinks, trlinks ];
-modules(mid).flags = trflags;
+modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
 modules(mid).ignore = false;
 mid = mid+1;
@@ -146,7 +149,7 @@ modules(mid).name = 'hydidsiQIntegrals_';
 modules(mid).src = './hydidsi';
 modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = [ blaslinks, trlinks ];
-modules(mid).flags = trflags;
+modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
 modules(mid).ignore = false;
 mid = mid+1;
@@ -155,7 +158,7 @@ modules(mid).name = 'atti2dti_';
 modules(mid).src = './tensor';
 modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = [ blaslinks, trlinks ];
-modules(mid).flags = trflags;
+modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tensor'];
 modules(mid).ignore = false;
 mid = mid+1;
@@ -164,7 +167,7 @@ modules(mid).name = 'dti2spectrum_';
 modules(mid).src = './tensor';
 modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = [ blaslinks, trlinks ];
-modules(mid).flags = trflags;
+modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tensor'];
 modules(mid).ignore = false;
 mid = mid+1;
