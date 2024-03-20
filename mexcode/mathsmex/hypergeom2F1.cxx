@@ -120,8 +120,8 @@ namespace hypegeo
         and "almost all" a, b, and c*/
     int hyperGeom2F1( const double& a, const double& b, const double& c, const double& z, double& f )
     {
+        double v1, v2, ga, gb, gc, gcb, gca, gabc, gcba;
         int result;
-        double v1, v2;
         const double max_negative_threshold = -100000.0f;
         const double z_1_threshold = 1000*sqrt(__eps__);
         if( z == 1.0 ){
@@ -138,17 +138,15 @@ namespace hypegeo
              * parameters of a, b, and c that will produce evaluations of
              * Gamma functions at negative integers
              */
-            if( isnegint(a) || isnegint(b) || isnegint(c) ||
-                isnegint(c-b-a) || isnegint(a+b-c) ||
-                isnegint(c-a) || isnegint(c-b) ){
+            if( badCombination(a,b,c) ){
                 f = NAN;
                 return H2F1_GAMMAUNDEF;
             }
             // Everything allright, we can compute:
-            double gc   = tgamma(c);
-            double gcb  = tgamma(c-b);
-            double gca  = tgamma(c-a);
-            double gcba = tgamma(c-b-a);
+            gc   = tgamma(c);
+            gcb  = tgamma(c-b);
+            gca  = tgamma(c-a);
+            gcba = tgamma(c-b-a);
             f = (gcba*gc)/(gcb*gca);
             return H2F1_SUCCESS;
         }
@@ -173,9 +171,7 @@ namespace hypegeo
                  * parameters of a, b, and c that will produce evaluations of
                  * Gamma functions at negative integers
                  */
-                if( isnegint(a) || isnegint(b) || isnegint(c) ||
-                    isnegint(c-b-a) || isnegint(a+b-c) ||
-                    isnegint(c-a) || isnegint(c-b) ){
+                if( badCombination(a,b,c) ){
                     f = NAN;
                     return H2F1_GAMMAUNDEF;
                 }
@@ -191,13 +187,13 @@ namespace hypegeo
                      * pow(var,c-b-a) may become arbitrarily large...
                      */
                     // Everything allright, we can compute:
-                    double ga   = tgamma(a);
-                    double gb   = tgamma(b);
-                    double gc   = tgamma(c);
-                    double gcb  = tgamma(c-b);
-                    double gca  = tgamma(c-a);
-                    double gcba = tgamma(c-b-a);
-                    double gabc = tgamma(a+b-c);
+                    ga   = tgamma(a);
+                    gb   = tgamma(b);
+                    gc   = tgamma(c);
+                    gcb  = tgamma(c-b);
+                    gca  = tgamma(c-a);
+                    gcba = tgamma(c-b-a);
+                    gabc = tgamma(a+b-c);
                     double var  = (1.0-z)/z;
                     v1 = gcba/(gcb*gca) * (   1.0 -     a * (a-c+1.0) / (a+b-c+1.0) * var   ); // Can divide by (a+b-c+1.0), see above
                     v2 =   gabc/(ga*gb) * (   1.0 - (c-b) *   (1.0-b) / (c-b-a+1.0) * var   ); // Can divide by (c-b-a+1.0), see above
@@ -211,6 +207,13 @@ namespace hypegeo
              * Here Horchler's approach should converge without issues
              */
             return hyperGeom2F1_azl1( a, b, c, z, f );
+        }
+        else if( z==0.0 ){
+            /**
+             * This case must be addressed individually, otherwise the case
+             * z<=0.0 will produce an infinite recursion
+             */
+            return hyperGeom2F1_azl1( a, b, c, 0.0, f );
         }
         else if( z<=0.0 ){
             /**
@@ -229,30 +232,49 @@ namespace hypegeo
         else if( z>1.0 ){
             /**
              * If we end up here, we have a positive number strictly greater
-             * than 1. The only thing we can do is working with eq. (13) of
-             * Michel & Stoitsov's paper, which involves the computation of
-             * Gamma functions (and, therefore, numerical unstabilities...)
+             * than 1. We can use the transformation in eq. (12) of
+             * Michel & Stoitsov's paper, i.e. going from z>1 to 
+             * -infty < 1-z < 0. This way, this case reduces to the previous
+             * one. Bad newa are: 
+             *     - We need to compute Gamma functions, and it may lead 
+             *       unstabilities for combinations of a, b, and c yielding
+             *       negative integers.
+             * 
+             *     - If z is close to 1 and c-b-a < 0, we will experience
+             *       the same numerical issues as in the case for z -> 1
+             *       with z < 0.
              */
             // Check first if we have evaluations of integer, negative
             // values for Gamma functions:
-            if( isnegint(a) || isnegint(b) || isnegint(c) ||
-                    isnegint(a-b) || isnegint(b-a) ||
-                    isnegint(c-a) || isnegint(c-b) ){
+            if( badCombination(a,b,c) ){
                 f = NAN;
                 return H2F1_GAMMAUNDEF;
             }
             else{
-                // Otherwise, directly implement eq. (13):
-                result = hyperGeom2F1( a, 1.0-c+a, 1.0-b+a, 1.0/z, v1 );
+                // Otherwise, directly implement eq. (12):
+                result = hyperGeom2F1( a, b, a+b-c+1.0, 1.0-z, v1 );
                 if( result!=H2F1_SUCCESS ){ f=v1; return result;}
-                result = hyperGeom2F1( b, 1.0-c+b, 1.0-a+b, 1.0/z, v2 );
+                result = hyperGeom2F1( c-a, c-b, c-a-b+1.0, 1.0-z, v2 );
                 if( result!=H2F1_SUCCESS ){ f=v2; return result;}
-                double c1 = ( tgamma(c)*tgamma(b-a) )/( tgamma(b)*tgamma(c-a) );
-                double c2 = ( tgamma(c)*tgamma(a-b) )/( tgamma(a)*tgamma(c-b) );
-                if(z<0.0)
-                    f = c1 * pow(-z,-a) * v1 + c2 * pow(-z,-b) * v2;
-                else // Return the real part
-                    f = c1 * pow(z,-a) * cos(a*PI) * v1 + c2 * pow(z,-b) * cos(b*PI) * v2;
+                // Compute the Gamma functions:
+                ga   = tgamma(a);
+                gb   = tgamma(b);
+                gc   = tgamma(c);
+                gcb  = tgamma(c-b);
+                gca  = tgamma(c-a);
+                gcba = tgamma(c-b-a);
+                gabc = tgamma(a+b-c);
+                // Correct the addends:
+                v1 *= gcba/(gca*gcb);
+                v2 *= gabc/(ga*gb);
+                // Eq. (12) includes a product of the second addend
+                // with pow(1-z,c-a-b). However, since 1-z is a negative
+                // number a c-a-b is, in general, a real number, this
+                // power will be a complex number. We will keep the real
+                // part
+                v2 *= pow(z-1.0,c-a-b) * cos((c-a-b)*PI);
+                // Add both terms and multiply by Gamma(c):
+                f = gc*(v1+v2);
                 return H2F1_SUCCESS;
             }
         }
@@ -355,7 +377,7 @@ namespace hypegeo
                 fact    = 2.0;
                 for( i=0; i<itermax; ++i ){
                     arg     *= mz;
-                    corr     = sign * (cumprod/fact) * (g+2*i+1) / arg;
+                    corr     = sign * (cumprod/fact) / (g+2*i+1) / arg;
                     ser     += corr;
                     if(abs(corr)<tol)
                         break;
@@ -383,6 +405,13 @@ namespace hypegeo
             unsigned int zi = (unsigned int)(-z);
             return ( abs((double)zi+z) < 10*__eps__ );
         }
+    }
+    
+    bool badCombination( const double& a, const double& b, const double& c )
+    {
+        return ( isnegint(a) || isnegint(b) || isnegint(c) ||
+            isnegint(c-b-a) || isnegint(a+b-c) ||
+            isnegint(c-a) || isnegint(c-b) );
     }
     
 } // End namespace hypegeo

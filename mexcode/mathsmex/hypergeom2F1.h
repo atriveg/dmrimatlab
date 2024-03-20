@@ -60,6 +60,8 @@ namespace hypegeo
     
     bool isnegint(const double& );
     
+    bool badCombination( const double&, const double&, const double& );
+    
 } // End namespace shmaths
 
 #endif //_sphericalHarmonics_h_
