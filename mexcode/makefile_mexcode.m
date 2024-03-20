@@ -46,6 +46,15 @@ cd( [fileparts(which('setup__DMRIMatlab_toolbox')),'/mexcode'] );
 warning('off','MATLAB:mex:GccVersion_link');
 mid = 1;
 % -----------------
+modules(mid).name = 'dmri_2F1mex';
+modules(mid).src = './misfit';
+modules(mid).depends = {'../mathsmex/hypergeom2F1.cxx','../threads/threadHelper.cpp'};
+modules(mid).links = trlinks;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/MiSFIT'];
+modules(mid).flags = {};
+modules(mid).ignore = false;
+mid = mid+1;
+% -----------------
 modules(mid).name = 'mexGenerateSHMatrix';
 modules(mid).src = './sh';
 modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx'};
