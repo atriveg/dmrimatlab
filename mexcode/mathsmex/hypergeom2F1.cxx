@@ -122,7 +122,6 @@ namespace hypegeo
     {
         double v1, v2, ga, gb, gc, gcb, gca, gabc, gcba;
         int result;
-        const double max_negative_threshold = -100000.0f;
         const double z_1_threshold = 1000*sqrt(__eps__);
         if( z == 1.0 ){
             /**
