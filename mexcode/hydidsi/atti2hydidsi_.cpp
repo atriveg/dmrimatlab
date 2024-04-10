@@ -12,11 +12,14 @@
 #include "mex.h"
 #include "matrix.h"
 #include "math.h"
+#include <cmath>
 #include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/sphericalHarmonics.h" // Just for the definition of PI
 #include "../mathsmex/mexToMathsTypes.h"
 #include "../threads/threadHelper.h"
+#include "../mathsmex/sanityCheckDTI.h"
 #include "../gcv/compute_gcv.h"
+#include "../quadprog/dmriquadprog.h"
 
 typedef struct HYDIIOData{
     // Input:
@@ -42,6 +45,7 @@ typedef struct HYDIParameters{
     ElementType lambda;
     ElementType ADC0;
     ElementType lRth;
+    ElementType tau;
     unsigned int miters;
     ElementType otol;
     ElementType stol;
@@ -59,40 +63,12 @@ public:
     HYDIParameters* params;
 };
 
-typedef struct QuadProgMem{
-    BufferType H;
-    BufferType Hi;
-    BufferType g;
-    BufferType dir;
-    BufferType x;
-    BufferType x0;
-    BufferType dx;
-    ElementType Q;
-    IndexBuffer bnd1;
-    IndexBuffer bnd1n;
-    IndexType bnd2;
-    IndexType bnd2n;
-    // ---
-    IndexBuffer pivot;
-    ptrdiff_t llwork;
-    BufferType work;
-} QuadProgMem;
-
-void allocateQuadProgMem( QuadProgMem*, const SizeType );
-
-void setupQuadProgMem( QuadProgMem*, const BufferType, const BufferType, const BufferType, const ElementType, const SizeType );
-
-void freeQuadProgMem( QuadProgMem* );
-
-IndexType hydidsiQuadProg( QuadProgMem*, const unsigned int, const ElementType, const ElementType, const ElementType, const SizeType );
 
 THFCNRET atti2hydidsi_process_fcn( void* );
 
-void hydidsiComputeBounds( QuadProgMem*, const SizeType, const ElementType );
-
-void hydidsiPredictBounds( QuadProgMem*, const SizeType );
-
-ElementType hydidsiComputeResidual( const QuadProgMem*, const SizeType );
+void setDTISolution( const BufferType rx, const BufferType ry, const BufferType rz,
+                    const ElementType l1, const ElementType l2, const ElementType l3,
+                    const ElementType tau, const SizeType NR, BufferType eap );
 
 /* The gateway function */
 void mexFunction( int nlhs, mxArray *plhs[],
@@ -110,13 +86,14 @@ void mexFunction( int nlhs, mxArray *plhs[],
      * prhs[7]:  uvw, the locations to interpret DFT, dftdim[0] x 3
      * prhs[8]:  ADC0, the free-water diffusivity at body temperature, 1 x 1
      * prhs[9],  lRth, the cropping factor for the tails of the EAP, 1 x 1
-     * prhs[10], optim, a structure with the parameters to the optimization algorithm
+     * prhs[10], tau, the effective diffusion time, 1 x 1
+     * prhs[11], optim, a structure with the parameters to the optimization algorithm
      *           (see the help on dmriQuadprog)
      *       optim.miters, maximum number of iterations
      *       optim.otol, tolerance for the optimality condition, 1 x 1
      *       optim.stol, tolerance for the optimization step, 1 x 1
      *       optim.ctol, tolerance for the constraints, 1 x 1
-     * prhs[11], maxthreads, the maximum number of threads in POSIX systems, 1 x 1
+     * prhs[12], maxthreads, the maximum number of threads in POSIX systems, 1 x 1
      *
      *  OUTPUTS:
      *
@@ -139,8 +116,8 @@ void mexFunction( int nlhs, mxArray *plhs[],
     else if( strcmp(callerFunc,"atti2hydidsi") )
         mexErrMsgIdAndTxt("MyToolbox:atti2hydidsi_:callstack","This function should only be called from atti2hydidsi");
     //=======================================================================================
-    if(nrhs!=12)
-        mexErrMsgIdAndTxt("MyToolbox:atti2hydidsi_:nrhs","Exactly 12 input arguments are required");
+    if(nrhs!=13)
+        mexErrMsgIdAndTxt("MyToolbox:atti2hydidsi_:nrhs","Exactly 13 input arguments are required");
     //=======================================================================================
     SizeType N = mxGetN(prhs[0]); // The number of voxels to process
     SizeType G = mxGetM(prhs[0]); // The number of gradient directions per voxel
@@ -149,17 +126,18 @@ void mexFunction( int nlhs, mxArray *plhs[],
     params.lambda = mxGetScalar(prhs[5]);
     params.ADC0 = mxGetScalar(prhs[8]);
     params.lRth = mxGetScalar(prhs[9]);
+    params.tau = mxGetScalar(prhs[10]);
     params.miters = 100;
-    mxArray* mxmiters = mxGetField( prhs[10], 0, "miters");
+    mxArray* mxmiters = mxGetField( prhs[11], 0, "miters");
     if( mxmiters!=NULL ){ params.miters = mxGetScalar(mxmiters); }
     params.otol = 1.0e-6;
-    mxArray* mxotol = mxGetField( prhs[10], 0, "otol");
+    mxArray* mxotol = mxGetField( prhs[11], 0, "otol");
     if( mxotol!=NULL ){ params.otol = mxGetScalar(mxotol); }
     params.stol = 1.0e-6;
-    mxArray* mxstol = mxGetField( prhs[10], 0, "stol");
+    mxArray* mxstol = mxGetField( prhs[11], 0, "stol");
     if( mxstol!=NULL ){ params.stol = mxGetScalar(mxstol); }
     params.ctol = 1.0e-8;
-    mxArray* mxctol = mxGetField( prhs[10], 0, "ctol");
+    mxArray* mxctol = mxGetField( prhs[11], 0, "ctol");
     if( mxctol!=NULL ){ params.ctol = mxGetScalar(mxctol); }
     //=======================================================================================
     HYDIIOData io;
@@ -222,11 +200,11 @@ void mexFunction( int nlhs, mxArray *plhs[],
     else
         io.lopt = NULL;
     //=======================================================================================
-    unsigned int maxthreads = get_number_of_threads( (unsigned int)mxGetScalar(prhs[11]) );
+    unsigned int maxthreads = get_number_of_threads( (unsigned int)mxGetScalar(prhs[12]) );
     //=======================================================================================
     // Use the helper class to pass arguments. Inherited values:
     ThArgs threader;
-    threader.setProcessSize( N, 20 );
+    threader.setProcessSize( N, 1 );
     // Own values:
     threader.G          = G;
     threader.K          = K;
@@ -257,17 +235,17 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
     // peformance.
     unsigned int blas_threads = blas_num_threads(1);
 
+    // -----------------------------------------------------------------------------
     // Convenience constants:
     SizeType G = args->G;
     SizeType K = args->K;
     // Allocate auxiliar buffers for computations
-    // ---
+    // -----------------------------------------------------------------------------
+    // Auxiliary buffers to compute DTI spectrum:
     ElementType dti[6];
     ElementType eigval[3];
     ElementType eigvec[9];
-    const ptrdiff_t dim = 3;
-    ptrdiff_t info = 0;
-    ElementType work[9]; // According to Lapack's docs for dspev 
+    // -----------------------------------------------------------------------------
     // ---
     BufferType gi2 = new ElementType[(args->G)*3];
     // ---
@@ -291,9 +269,9 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
     // ---
     BufferType H  = new ElementType[NR*NR];
     BufferType Hi = new ElementType[NR*NR];
-    BufferType b = new ElementType[NR];
-    BufferType eap = new ElementType[NR];
+    // -----------------------------------------------------------------------------
     // If GCV is required, we will need some extra stuff:
+    ptrdiff_t info = 0;
     int result_gcv;
     double lambdagcv;
     double costgcv;
@@ -307,23 +285,32 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
         gcvparams.lambdastep = exp(-log(10)/5.0f);
         gcvparams.maxvals = 20;
     }
-    // ---
-    IndexBuffer pivot = new IndexType[NR];
-    ptrdiff_t llwork2 = -1;
-    ptrdiff_t nrhs = 1;
-    ptrdiff_t NR_ = NR;
-    ptrdiff_t total_used_ = args->G;
-    ptrdiff_t unit_ = 1;
-    ElementType alpha_ = 1.0f; // For use with dgemm
-    ElementType beta_  = 1.0f; // For use with dgemm
-    ElementType dumb;
-    dsysv( "U", &NR_, &nrhs, H, &NR_, pivot, b, &NR_, &dumb, &llwork2, &info );
-    llwork2 = (ptrdiff_t)dumb;
-    BufferType work2 = new ElementType[ llwork2 ];
-    // ---
-    QuadProgMem mem;
-    allocateQuadProgMem( &mem, NR );
-    // ---
+    // -----------------------------------------------------------------------------
+    // Data structures for quadratic programming
+    dmriqpp::QPProblem  qpproblem; // The problem itself
+    dmriqpp::QPAuxiliar qpaux;     // Auxiliar buffers
+    dmriqpp::QPParams   qpparams;  // Parameters for the algorithm
+    // Initallize these structures. There are NR variables to optimize,
+    // with CE=1 equality constraints, CI=0 inequality constraints, CL=NR
+    // lower bounds and CU=0 upper bounds:
+    dmriqpp::allocateQPProblem( qpproblem, NR, 1, 0, NR, 0 );
+    // The lower bounds are all zeros, so that we can fix them here:
+    mataux::setValueMxArray( qpproblem.lb, NR, 1, 0.0 );
+    // Finally, set the parameters to the algorithm:
+    qpproblem.step = 0.1;
+    qpparams.maxiters = 1000000;
+    qpparams.streak = 3;
+    qpparams.steptol = 1.0e-6;
+    qpparams.costtol = 1.0e-6;
+    qpparams.normalize = true;
+    qpparams.computes0 = true;
+    // Now we can allocate all auxiliar buffers:
+    dmriqpp::allocateQPAuxiliar( qpproblem,  qpparams, qpaux );
+    // NOTE: The voxel-specific buffers to fill are:
+    //   The pseudo-inverse of Q, qpproblem.Qi (NR x NR)
+    //   The linear term of the cost function, qpproblem.f (NR x 1)
+    //   The factors of the equality constraints, qpproblem.Aeqt (NR x 1)
+    // -----------------------------------------------------------------------------
     // Loop through the voxels
     IndexType start = 0;
     IndexType end   = 0;
@@ -332,57 +319,12 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
         args->claimNewBlock( &start, &end );
         // Process all pixels in the block:
         for(  IndexType i=start; i<end; ++i ){
-            //---------------------------------------------------------------------
+            // ---------------------------------------------------------------------
             // 1- Check the tensor model and compute eigenvalues and eigenvectors
-            //    to shape the transformed space (will use Lapack's dsyev)
+            //    to shape the transformed (anatomical) space (will use Lapack's
+            //    dsyev)
             memcpy( dti, &(io->dti[6*i]), 6*sizeof(ElementType) );
-            dspev( "V", "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info );
-            if(info!=0){
-                // Computation failed for some reason. Fill eigenvalues with
-                // free-water value:
-                eigval[0] = eigval[1] = eigval[2] = args->params->ADC0;
-                eigvec[0] = eigvec[4] = eigvec[8] = 1.0f;
-                eigvec[1] = eigvec[2] = eigvec[3] = eigvec[5] = eigvec[6] =  eigvec[7] = 0.0f;
-            }
-            else{
-                eigval[0] = abs(eigval[0]);
-                eigval[1] = abs(eigval[1]);
-                eigval[2] = abs(eigval[2]);
-                // Sanity checks...
-                for( unsigned int p=0; p<3; ++p ){
-                    eigval[p] = abs(eigval[p]);
-                    if( eigval[p]<(args->params->ADC0)/60 )
-                        eigval[p] = (args->params->ADC0)/60;
-                    if( eigval[p]>args->params->ADC0 )
-                        eigval[p] = args->params->ADC0;
-                }
-                // Ordering:
-                ElementType eval;
-                ElementType evec[3];
-                for( unsigned int p=0; p<2; ++p ){
-                    for( unsigned int q=p+1; q<3; ++q ){
-                        if(eigval[p]>eigval[q]){ // Must reorder
-                            eval = eigval[p];
-                            evec[0] = eigvec[3*p+0];
-                            evec[1] = eigvec[3*p+1];
-                            evec[2] = eigvec[3*p+2];
-                            eigval[p] = eigval[q];
-                            eigval[q] = eval;
-                            eigvec[3*p+0] = eigvec[3*q+0];
-                            eigvec[3*p+1] = eigvec[3*q+1];
-                            eigvec[3*p+2] = eigvec[3*q+2];
-                            eigvec[3*q+0] = evec[0];
-                            eigvec[3*q+1] = evec[1];
-                            eigvec[3*q+2] = evec[2];
-                        }
-                    }
-                }
-                // Make sure eigvec is a rotation matrix
-                // by making e1 = e2 x e3
-                eigvec[0] = eigvec[4]*eigvec[8]-eigvec[5]*eigvec[7];
-                eigvec[1] = eigvec[5]*eigvec[6]-eigvec[3]*eigvec[8];
-                eigvec[2] = eigvec[3]*eigvec[7]-eigvec[4]*eigvec[6];
-            }
+            dtisc::sanityCheckDTI( (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, args->params->ADC0, 'A' );
             //---------------------------------------------------------------------
             // 2- Determine the supports of the q- and the R-spaces
             mataux::multiplyMxArrays( args->io->gi, (BufferType)eigvec, gi2,
@@ -463,88 +405,87 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
                 }
             }
             //---------------------------------------------------------------------
-            // 7- Set up the constrained, regularized problem
-            // This is something like:
-            //    H = encode'*encode + lambda*frt'*ftr
-            //    b = -encode'*atti
-            // ----
+            // 7- Compute the two addends of the quadratic term of the cost
+            //    function, i.e. of matrix H
             mataux::transposeMultiplyMxArray( dft, H, args->dftdim[0], NR );
             mataux::transposeMultiplyMxArray( encode, Hi, total_used, NR );
-            /** GENERALIZED CROSS-VALIDATION IS CARRIED OUT HERE */
-            // Note this piece of code, if run, is especially slow, since
-            // the bottle neck of the algorithm (the inversion of the PD
-            // matrix) has to be repeated many times
-            lambdagcv = params->lambda;
+            //---------------------------------------------------------------------
+            // 8- If necessary, run Generalized Cross-Validation
+            lambdagcv  = params->lambda;
+            result_gcv = -1;
             if(use_gcv){
-                result_gcv = gcv::computeGCV(encode,Hi,H,atti,pinv,lambdagcv,costgcv,total_used,NR,&gcvparams);
-                // In GCV we will return the final value of the inverted matrix, so that we can replace
-                // the "dposv" call later on with a product GCV*eap
+                result_gcv = gcv::computeGCV(encode,Hi,H,atti,pinv,
+                        lambdagcv,costgcv,total_used,NR,&gcvparams);
+                // In case this call succeeded (the usual case), pinv
+                // already contains the inverse of the quadratic term of
+                // the cost function, Qi = H^{-1}, which we can use
                 if(result_gcv<0) // Matrix inversion failed. Revert...
                     lambdagcv = gcvparams.lambda0;
             }
             if( args->io->lopt != NULL )
                 args->io->lopt[i] = (ElementType)lambdagcv;
-            /** END OF GENERALIZED CROSS-VALIDATION */
+            //---------------------------------------------------------------------
+            // 9- Set up the final shape of the quadratic programming
+            //    problem, i.e.:
+            //        H = encode'*encode + lambda*frt'*ftr
+            //        b = -encode'*atti
             mataux::scalaropMxArray( H, NR, NR, lambdagcv, mataux::MULTIPLY );
             mataux::addMxArrays( Hi, H, H, NR, NR );
-            mataux::multiplyMxArrays( atti, encode, b, 1, total_used, NR );
-            mataux::scalaropMxArray( b, NR, 1, -1.0f, mataux::MULTIPLY );
-            memcpy( eap, b, NR*sizeof(ElementType) );
-            // -----
-            // We need to invert the matrix H; the way it is computed, it is necessarily
-            // symmetric and positive SEMI definite. But, if it is invertible, then it
-            // is positive definite. Summarizing, we will call Lapack's dposv for a
-            // Cholesky factorization based solution; if that fails, we cannot proceed
-            //
-            if( use_gcv && (result_gcv>=0) ){
-                // NOTE: if result_gcv==0, the optimal value of lambda
-                // was found and the matrix inversion succeeded. If
-                // result_gcv>0, we didn't get a local minimum, but still
-                // the GCV cost decreased for all iterations and the
-                // matrix inversion was successful, so it makes sense to
-                // use the final value obtained
-                mataux::multiplyMxArrays( pinv, b, eap, NR, NR, 1 );
-            }
-            else{
-                // If either no GCV was required or result_gcv<0 (matrix
-                // inversion failed), we have to explicitly invert the matrix:
+            mataux::multiplyMxArrays( atti, encode, qpproblem.f, 1, total_used, NR );
+            mataux::scalaropMxArray( qpproblem.f, NR, 1, -1.0f, mataux::MULTIPLY );
+            // If we already didn't (during the computation of the GCV-
+            // derived lambda), we need to invert H to obtain Qi:
+            info = result_gcv;
+            if( info<0 ){
+                // Set the identity matrix:
+                mataux::setValueMxArray( qpproblem.Qi, NR, NR, 0.0 );
+                for( IndexType n=0; n<(IndexType)NR; ++n )
+                    qpproblem.Qi[n+NR*n] = 1.0;
                 memcpy( Hi, H, NR*NR*sizeof(ElementType) );
-                dposv( "L", &NR_, &nrhs, Hi, &NR_, eap, &NR_, &info );
-                if(info!=0)
-                    continue;
-            }
-            // -----
-            ElementType csum = 0.0f;
-            for( IndexType r=0; r<NR; ++r ){
-                if(eap[r]<0.0)
-                    eap[r] = -eap[r];
-                else
-                    eap[r] = 0.0f;
-                if(r>0)
-                    csum += 2.0f * eap[r] / Q;
-                else
-                    csum += eap[r] / Q;
-            }
-            if(csum>mxGetEps()){
-                for( IndexType r=0; r<NR; ++r )
-                    eap[r] /= csum;
+                ptrdiff_t NR_   = NR;
+                ptrdiff_t nrhs_ = NR;
+                dposv( "L", &NR_, &nrhs_, Hi, &NR_, qpproblem.Qi, &NR_, &info );
             }
             else
-                eap[0] = Q;
-            //---------------------------------------------------------------------
-            // 8- Solve the constrained, regularized problem
-            IndexType nit = 0;
-            if(params->miters>0){
-                setupQuadProgMem( &mem, H, b, eap, Q, NR );
-                nit = hydidsiQuadProg( &mem, params->miters, params->otol, params->stol, params->ctol, NR );
-                memcpy( &(eap[1]), mem.x0, (unsigned int)(NR-1)*sizeof(ElementType) ); // The (unisgned int) cast prevents recent gcc's to throw an overflow warning
-                eap[0] = Q;
-                for( IndexType r=1; r<NR; ++r )
-                    eap[0] -= 2.0f * eap[r];
-                memcpy( &(args->io->eap[i*NR]), eap, NR*sizeof(ElementType) );
+                memcpy( qpproblem.Qi, pinv, NR*NR*sizeof(double) );
+            if(info<0){
+                // If info is not 0, it means that H cannot be inverted, 
+                // likely because it is not positive definite. The best we 
+                // can do in this case is just setting the DTI solution:
+                setDTISolution( rx, ry, rz,
+                        eigval[0], eigval[1], eigval[2],
+                        params->tau, NR, &(args->io->eap[i*NR]) );
+            }
+            else{
+                // H is PD and we can solve the problem. It only remains to
+                // set the equality constraint:
+                mataux::setValueMxArray( qpproblem.Aeqt, NR, 1, 2.0/Q );
+                qpproblem.Aeqt[0] = 1.0/Q;
+                qpproblem.beq[0] = 1.0;
             }
             //---------------------------------------------------------------------
-            // 9- If necessary, compute the residual of the fitting and
+            // 10- If H is actually invertible, try to solve the problem:
+            if(info==0){
+                int qp_result = dmriqpp::solveQuadraticProgram( qpproblem,
+                        qpaux, qpparams );
+                if(qp_result<0){
+                    // If qp_result is < 0, the algorithm failed to solve
+                    // the problem, and the best we can do, once again, is
+                    // setting the DTI solution of the problem:
+                    setDTISolution( rx, ry, rz,
+                        eigval[0], eigval[1], eigval[2],
+                        params->tau, NR, &(args->io->eap[i*NR]) );
+                }
+                else{
+                    // Otherwise, the solution to the problem is stored in
+                    // qpproblem.x, which we can directly pass as the 
+                    // output:
+                    memcpy( &(args->io->eap[i*NR]), qpproblem.x, 
+                            NR*sizeof(ElementType) );
+                }
+            }
+            //---------------------------------------------------------------------
+            // 11- If necessary, compute the residual of the fitting and
             //    the Laplacian penalty
             if( args->io->resn != NULL ){
                 // In MATLAB, we do:
@@ -554,21 +495,15 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
                 //   atti:   total_used x 1
                 //   encode: total_used x NR
                 //   eap:    NR x 1
-                total_used_ = total_used;
-                alpha_ = 1.0f;
-                beta_  = -1.0f;
+                ptrdiff_t NR_   = NR;
+                ptrdiff_t unit_ = 1;
+                ptrdiff_t total_used_ = total_used;
+                ElementType alpha_ = 1.0f;
+                ElementType beta_  = -1.0f;
                 dgemv( "N", &total_used_, &NR_, &alpha_, encode,
-                      &total_used_, eap, &unit_, &beta_, atti, &unit_ );
+                        &total_used_, &(args->io->eap[i*NR]), 
+                        &unit_, &beta_, atti, &unit_ );
                 ElementType resn = ddot( &total_used_, atti, &unit_, atti, &unit_ );
-                /*
-                ElementType resn = 0.0f;
-                for( IndexType r=0; r<total_used; ++r ){
-                ElementType temp = args->io->atti[i*(args->G)+used[r]];
-                for( IndexType c=0; c<NR; ++c )
-                temp -= encode[total_used*c+r] * (args->io->eap[i*NR+c]);
-                resn += (temp*temp);
-                }
-                */
                 args->io->resn[i] = resn;
             }
             if( args->io->lapln != NULL ){
@@ -578,21 +513,15 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
                 // which we can translate to direct Lapack's calls
                 //   dft: args->dftdim[0] x NR
                 //   eap: NR x 1
-                total_used_ = args->dftdim[0]; // Re-use the variable
-                alpha_ = 1.0f;
-                beta_  = 0.0f;
+                ptrdiff_t NR_   = NR;
+                ptrdiff_t unit_ = 1;
+                ptrdiff_t total_used_ = args->dftdim[0]; // Re-use the variable
+                ElementType alpha_ = 1.0f;
+                ElementType beta_  = 0.0f;
                 dgemv( "N", &total_used_, &NR_, &alpha_, dft,
-                      &total_used_, eap, &unit_, &beta_, u, &unit_ ); // Re-use "u"
+                      &total_used_, &(args->io->eap[i*NR]), 
+                      &unit_, &beta_, u, &unit_ ); // Re-use "u"
                 ElementType lapln = ddot( &total_used_, u, &unit_, u, &unit_ );
-                /*
-                ElementType lapln = 0.0f;
-                for( IndexType r=0; r<(IndexType)(args->dftdim[0]); ++r ){
-                ElementType temp = 0.0f;
-                for( IndexType c=0; c<(IndexType)NR; ++c )
-                temp += dft[c*(args->dftdim[0])+r] * (args->io->eap[i*NR+c]);
-                lapln += (temp*temp);
-                }
-                */
                 args->io->lapln[i] = lapln;
             }
             //---------------------------------------------------------------------
@@ -601,31 +530,35 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
     while( start < args->getN() );
    
     // Free memory previously allocated
+    // --------------------------------------------------------------------
     delete[] gi2;
     delete[] used;
+    // --------------------------------------------------------------------
     delete[] qx;
     delete[] qy;
     delete[] qz;
     delete[] rx;
     delete[] ry;
     delete[] rz;
+    // --------------------------------------------------------------------
     delete[] encode;
     delete[] atti;
     delete[] dft;
     delete[] u;
     delete[] v;
     delete[] w;
+    // --------------------------------------------------------------------
     delete[] H;
     delete[] Hi;
-    delete[] b;
-    delete[] eap;
-    delete[] pivot;
-    delete[] work2;
+    // --------------------------------------------------------------------
     if(use_gcv){
         delete[] pinv;
         gcv::freeGCVMemory( &gcvparams );
     }
-    freeQuadProgMem( &mem );
+    // --------------------------------------------------------------------
+    dmriqpp::freeQPProblem( qpproblem );
+    dmriqpp::freeQPAuxiliar( qpaux );
+    // --------------------------------------------------------------------
 
     // Revert BLAS threads usage to its default:
     blas_num_threads(blas_threads);
@@ -633,190 +566,20 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
     return (THFCNRET)NULL;
 }
 
-void allocateQuadProgMem( QuadProgMem* mem, const SizeType NR ){
-    // --------------------------------------------
-    mem->H = new ElementType[(NR-1)*(NR-1)];
-    mem->Hi = new ElementType[(NR-1)*(NR-1)];
-    mem->g = new ElementType[NR-1];
-    mem->dir = new ElementType[NR-1];
-    mem->x = new ElementType[NR-1];
-    mem->x0 = new ElementType[NR-1];
-    mem->dx = new ElementType[NR-1];
-    mem->bnd1 = new IndexType[NR-1];
-    mem->bnd1n = new IndexType[NR-1];
-    // ----
-    mem->pivot = new IndexType[NR-1];
-    mem->llwork = -1;
-    IndexType info = 0;
-    ElementType dumb;
-    ptrdiff_t nrhs = 1;
-    ptrdiff_t NR_ = NR-1;
-    // This is a query call, just to check the proper size of the work buffer:
-    dsysv( "L", &NR_, &nrhs, mem->H, &NR_, mem->pivot, mem->g, &NR_, &dumb, &(mem->llwork), &info );
-    mem->llwork = (ptrdiff_t)dumb;
-    mem->work = new ElementType[ mem->llwork ];
-    return;
-}
 
-void setupQuadProgMem( QuadProgMem* mem, const BufferType H, const BufferType b, const BufferType eap, const ElementType Q, const SizeType NR ){
-    // --------------------------------------------
-    mem->Q = Q;
-    for( IndexType r=0; r<NR-1; ++r ){
-        for( IndexType c=r; c<NR-1; ++c ){
-            mem->H[c*(NR-1)+r] = H[(c+1)*NR+(r+1)] + 4.0f*H[0] - 2.0f*H[r+1] - 2.0f*H[c+1];
-            mem->H[r*(NR-1)+c] = mem->H[c*(NR-1)+r];
-        }
-    }
-    for( IndexType r=0; r<NR-1; ++r ){
-        mem->g[r] = b[r+1] + H[r+1]*Q - 2.0f*(H[0]*Q+b[0]);
-    }
-    memcpy( mem->x0, &eap[1], (NR-1)*sizeof(ElementType) );
-    ptrdiff_t NR_ = NR-1;
-    ptrdiff_t nrhs = 1;
-    ptrdiff_t info = 0;
-    memcpy( mem->Hi, mem->H, (NR-1)*(NR-1)*sizeof(ElementType) );
-    memcpy( mem->dir, mem->g, (NR-1)*sizeof(ElementType) );
-    // We need to invert mem->H. We will first try Cholesky factorization-based
-    // solving, and if that fails we will use a generic solver
-    dposv( "L", &NR_, &nrhs, mem->Hi, &NR_, mem->dir, &NR_, &info );
-    if(info!=0){
-        // Restore the problem:
-        memcpy( mem->Hi, mem->H, (NR-1)*(NR-1)*sizeof(ElementType) );
-        memcpy( mem->dir, mem->g, (NR-1)*sizeof(ElementType) );
-        dsysv( "L", &NR_, &nrhs, mem->Hi, &NR_, mem->pivot, mem->dir, &NR_, mem->work, &(mem->llwork), &info );
-    }
-}
-
-void freeQuadProgMem( QuadProgMem* mem ){
-    delete[] mem->H;
-    delete[] mem->Hi;
-    delete[] mem->g;
-    delete[] mem->dir;
-    delete[] mem->x;
-    delete[] mem->x0;
-    delete[] mem->dx;
-    delete[] mem->bnd1;
-    delete[] mem->bnd1n;
-    delete[] mem->pivot;
-    delete[] mem->work;
-    return;
-}
-
-IndexType hydidsiQuadProg( QuadProgMem* mem, const unsigned int miters, const ElementType otol, const ElementType stol, const ElementType ctol, const SizeType NR ){
-    // ------------
-    memcpy( mem->x, mem->x0, (NR-1)*sizeof(ElementType) );
-    hydidsiComputeBounds( mem, NR, ctol );
-    memcpy( mem->x0, mem->x, (NR-1)*sizeof(ElementType) );
-    memcpy( mem->bnd1, mem->bnd1n, (NR-1)*sizeof(IndexType) );
-    mem->bnd2 = mem->bnd2n;
-    ElementType res0 = hydidsiComputeResidual( mem, NR);
-    ElementType mu = 0.1f;
-    IndexType it;
-    for( it=1; it<=(IndexType)miters; ++it ){ // We do this weird indexing for consistency with matlab code
-        mataux::addMxArrays( mem->x0, mem->dir, mem->dx, NR-1, 1 );
-        mataux::scalaropMxArray( mem->dx, NR-1, 1, -mu, mataux::MULTIPLY );
-        // ------------
-        hydidsiPredictBounds( mem, NR );
-        // ------------
-        mataux::addMxArrays( mem->x0, mem->dx, mem->x, NR-1, 1 );
-        // ------------
-        hydidsiComputeBounds( mem, NR, ctol );
-        // ------------
-        // res = 0.5*(x'*H*x)+g'*x;
-        ElementType res = hydidsiComputeResidual( mem, NR);
-        // ------------
-        if( res<res0 ){
-            memcpy( mem->x0, mem->x, (NR-1)*sizeof(BufferType) );
-            memcpy( mem->bnd1, mem->bnd1n, (NR-1)*sizeof(IndexType) );
-            mem->bnd2 = mem->bnd2n;
-            mu = 2.0f * mu;
-            if( abs((res0-res)/res0) < otol ){
-                res0 = res;
-                break;
-            }
-            else
-                res0 = res;
-        }
-        else
-            mu = 0.5f*mu;
-        // ------------
-        if( mu<stol )
-            break;
-        // ------------
-    }
-    // ------------
-    return it;
-}
-
-void hydidsiPredictBounds( QuadProgMem* mem, const SizeType NR )
+void setDTISolution( const BufferType rx, const BufferType ry, const BufferType rz,
+                    const ElementType l1, const ElementType l2, const ElementType l3,
+                    const ElementType tau, const SizeType NR, BufferType eap )
 {
-    ElementType csum = 0.0f;
-    SizeType goods = 0;
-    for( IndexType r=0; r<(IndexType)NR-1; ++r ){
-        if( (mem->bnd1[r]>0) && (mem->dx[r]<0) ){
-            mem->bnd1n[r] = 1;
-            mem->dx[r] = 0.0f;
-        }
-        else{
-            mem->bnd1n[r] = 0;
-            csum += mem->dx[r];
-            ++goods;
-        }
-        if( (mem->bnd2>0) && (csum>0.0f) && (goods>0) ){
-            csum /= (ElementType)goods;
-            for( IndexType r=0; r<NR-1; ++r ){
-                if(mem->bnd1n[r]==0)
-                    mem->dx[r] -= csum;
-            }
-        }
+    ElementType fptau = 4.0*PI*tau;
+    ElementType den   = sqrt( std::abs(l1*l2*l3)*fptau*fptau*fptau );
+    for( IndexType n=0; n<(IndexType)NR; ++n ){
+        ElementType x = rx[n] * rx[n] / std::abs(l1);
+        ElementType y = ry[n] * ry[n] / std::abs(l2);
+        ElementType z = rz[n] * rz[n] / std::abs(l3);
+        //---
+        ElementType earg = -0.25*(x+y+z)/tau;
+        eap[n] = exp(earg)/den;
     }
     return;
-}
-
-void hydidsiComputeBounds( QuadProgMem* mem, const SizeType NR, const ElementType ctol )
-{
-    ElementType csum = 0.0f;
-    for( IndexType r=0; r<(IndexType)NR-1; ++r ){
-        if( mem->x[r]<ctol ){
-            mem->bnd1n[r] = 1;
-            mem->x[r] = 0.0f;
-        }
-        else{
-            mem->bnd1n[r] = 0;
-            csum += mem->x[r];
-        }
-    }
-    csum *= (2.0f/(mem->Q));
-    mem->bnd2n = ( csum>1.0f-ctol ? 1 : 0 );
-    if( mem->bnd2n != 0 )
-        mataux::scalaropMxArray( mem->x, (NR-1), 1, csum, mataux::DIVIDE );
-    return;
-}
-
-ElementType hydidsiComputeResidual( const QuadProgMem* mem, const SizeType NR )
-{
-    // Compute:
-    //    res = 0.5*(x'*H*x)+g'*x; % This is the original residual
-    // I can use mem->dx as an intermediate buffer. Besides, the
-    // operation can be done as:
-    //   res = x'*(0.5*H*x+g),
-    // where the second term can be directly computed with a
-    // single call to Lapack's dsymv
-    ptrdiff_t N_ = NR-1;
-    ptrdiff_t inc_ = 1;
-    ElementType alpha = 0.5f;
-    ElementType beta = 1.0f;
-    memcpy( mem->dx, mem->g, (NR-1)*sizeof(ElementType) );
-    dsymv( "U", &N_, &alpha, mem->H, &N_, mem->x, &inc_, &beta, mem->dx, &inc_ );
-    ElementType res = ddot( &N_, mem->dx, &inc_, mem->x, &inc_ );
-    /*
-    ElementType res = 0.0f;
-    for( IndexType r=0; r<(IndexType)NR-1; ++r ){
-        res += (mem->g[r])*(mem->x[r]);
-        res += 0.5f * (mem->x[r]) * (mem->x[r]) * mem->H[r*(NR-1)+r];
-        for( IndexType c=r+1; c<NR-1; ++c )
-            res += (mem->x[r]) * (mem->x[c]) * mem->H[c*(NR-1)+r];
-    }
-    */
-    return res;
 }

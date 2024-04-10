@@ -46,6 +46,8 @@ namespace mataux
     
     ElementType sumMxNDArray( const BufferType, const SizeType );
     
+    ElementType rmsMxNDArray( const BufferType, const SizeType );
+    
     SizeType nonnullsMxNDArray( const BufferType, const SizeType );
     
     bool notNull(const ElementType);

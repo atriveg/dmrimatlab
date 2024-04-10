@@ -1,7 +1,7 @@
 /*==========================================================
- * dmri_2F1mex.c
+ * dmri_2F1_.cpp
  *
- * Implements dmri_2F1mex as a mex function
+ * Implements dmri_2F1 as a mex function
  *
  * This is a MEX-file for MATLAB.
  * Copyright 2024 - Antonio Tristán Vega

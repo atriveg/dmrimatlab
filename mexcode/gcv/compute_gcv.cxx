@@ -22,7 +22,7 @@
 namespace gcv
 {
 
-/** This function intiallized the default values for the
+/** This function intiallizes the default values for the
  * parameters structure used by GCV and allocates intermediate
  * buffers used by LAPACK as needed */
 void allocateGCVMemory( const SizeType neqs, const SizeType NR, GCVParams* params)

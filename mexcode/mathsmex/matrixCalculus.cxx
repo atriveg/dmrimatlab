@@ -3,6 +3,7 @@
 
 #include "matrixCalculus.h"
 #include "math.h"
+#include <cmath>
 
 namespace mataux
 {
@@ -442,6 +443,17 @@ namespace mataux
         for( SizeType m=0; m<M; ++m )
             sum += (double)(in[m]);
         return sum;
+    }
+    
+    /** Compute RMS value of an N-D mxArray */
+    ElementType rmsMxNDArray(
+        const BufferType in,
+        const SizeType M )
+    {
+        double rms = 0.0f;
+        for( SizeType m=0; m<M; ++m )
+            rms += (double)(in[m]) * (double)(in[m]);
+        return sqrt(rms);
     }
     
     /** Compute all non-null elements of an ND array */

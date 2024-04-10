@@ -1,6 +1,64 @@
-% - Script to build mex functions
-% - NOTE: if using windows, either MinGW or Cywin/gcc are strongly
-%         recommended.
+function makefile_mexcode(varargin)
+% This is a function that builds all (or only selected) modules of mex code
+% within the toolbox. Use cases are:
+%
+%   + Print the list of all available modules that can be built:
+%
+%     >> makefile_mexcode list
+%
+%   + Check which modules need to be built:
+%
+%     >> makefile_mexcode missing
+%
+%   + Check which modules among a given list need to be built:
+%
+%     >> makefile_mexcode missing module1 module2 ... moduleN
+%
+%     where "modulei" are names within the list provided with the "list"
+%     command (first use case).
+%
+%   + Build ALL modules, no matter whether they are already built or not:
+%
+%     >> makefile_mexcode
+%     >> makefile_mexcode build
+%
+%   + Build only certain modules:
+%
+%     >> makefile_mexcode module1 module2 ... moduleN
+%     >> makefile_mexcode build module1 module2 ... moduleN
+%
+%     where "modulei" are names within the list provided with the "list"
+%     command (first use case).
+%
+%   + Delete ALL modules, no matter whether they are exist or not:
+%
+%     >> makefile_mexcode clean
+%
+%   + Delete only certain modules:
+%
+%     >> makefile_mexcode clean module1 module2 ... moduleN
+%
+%     where "modulei" are names within the list provided with the "list"
+%     command (first use case).
+%
+% NOTE: if using windows, either MinGW or Cywin/gcc are strongly
+%       recommended. We have not tested other compilers.
+
+if(nargin>0)
+    if(   strcmpi( varargin{1}, 'clean' )   )
+        action = 'c';
+    elseif(   strcmpi( varargin{1}, 'build' )   )
+        action = 'b';
+    elseif(   strcmpi( varargin{1}, 'list' )   )
+        action = 'l';
+    elseif(   strcmpi( varargin{1}, 'missing' )   )
+        action = 'm';
+    else
+        action = 'x';
+    end
+else
+    action = 'b';
+end
 
 % ------------------------------------------------------------------------------
 mtlroot = matlabroot;
@@ -46,13 +104,12 @@ cd( [fileparts(which('setup__DMRIMatlab_toolbox')),'/mexcode'] );
 warning('off','MATLAB:mex:GccVersion_link');
 mid = 1;
 % -----------------
-modules(mid).name = 'dmri_2F1mex';
+modules(mid).name = 'dmri_2F1_';
 modules(mid).src = './misfit';
 modules(mid).depends = {'../mathsmex/hypergeom2F1.cxx','../threads/threadHelper.cpp'};
 modules(mid).links = trlinks;
-modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/MiSFIT'];
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/maths/legendre'];
 modules(mid).flags = {};
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'mexGenerateSHMatrix';
@@ -61,7 +118,6 @@ modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx'};
 modules(mid).links = {};
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tests'];
 modules(mid).flags = {};
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'mexTripleSHProdReal';
@@ -70,7 +126,6 @@ modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx'};
 modules(mid).links = {};
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tests'];
 modules(mid).flags = {};
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'mexAllSquaredSHFactors';
@@ -79,7 +134,6 @@ modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx'};
 modules(mid).links = {};
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tests'];
 modules(mid).flags = {};
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'mexTestPosODFsGrads';
@@ -88,7 +142,6 @@ modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/matrix
 modules(mid).links = blaslinks;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tests'];
 modules(mid).flags = {};
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'signal2sqrtshodf';
@@ -97,7 +150,6 @@ modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/matrix
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/MiSFIT/utils'];
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'sh2squaredsh';
@@ -106,7 +158,6 @@ modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/matrix
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/sh'];
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'shodf2samples';
@@ -115,7 +166,6 @@ modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../threads/threadH
 modules(mid).links  = trlinks;
 modules(mid).flags = {};
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/sh'];
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'sh2hot_';
@@ -124,7 +174,6 @@ modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/hot'];
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'hot2sh_';
@@ -133,7 +182,6 @@ modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/hot'];
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'hot2signal_';
@@ -142,16 +190,14 @@ modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/hot'];
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'atti2hydidsi_';
 modules(mid).src = './hydidsi';
-modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../gcv/compute_gcv.cxx','../threads/threadHelper.cpp'};
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../gcv/compute_gcv.cxx','../threads/threadHelper.cpp','../mathsmex/sanityCheckDTI.cxx','../quadprog/dmriquadprog.cxx'};
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'hydidsiQIntegrals_';
@@ -160,7 +206,6 @@ modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelpe
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'atti2dti_';
@@ -169,7 +214,6 @@ modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelpe
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tensor'];
-modules(mid).ignore = false;
 mid = mid+1;
 % -----------------
 modules(mid).name = 'dti2spectrum_';
@@ -178,55 +222,108 @@ modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelpe
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tensor'];
-modules(mid).ignore = false;
+mid = mid+1;
+% -----------------
+modules(mid).name = 'mexDMRIquadprog';
+modules(mid).src = './quadprog';
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','dmriquadprog.cxx'};
+modules(mid).links  = [ blaslinks, trlinks ];
+modules(mid).flags = blasflags;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tests'];
 mid = mid+1;
 % -----------------
 
-for m=1:mid-1
-    clean_my_mex_module(modules(m));
+if(nargin>1)
+    if( action=='x' )
+        smodules = varargin(1:end);
+        action = 'b';
+    else
+        smodules = varargin(2:end);
+    end
+elseif(nargin==1)
+    if( action=='x' )
+        smodules = varargin(1);
+        action = 'b';
+    else
+        smodules = {modules(:).name}; % Select all
+    end
+else
+    smodules = {modules(:).name}; % Select all
 end
 
-for m=1:mid-1
-    build_my_mex_module(modules(m));
+% Check if all requested modules correspond to elegible modules:
+for n=1:length(smodules)
+    if(   ~any( ismember({modules(:).name},smodules{n}) )   )
+        error('<%s> doesn''t sound like a buildable module',smodules{n});
+    end
+end
+
+switch(action)
+    case 'l'
+        names = {modules(:).name};
+        fprintf(1,'These are the %d modules you can build:\n\n',mid-1);
+        for n=1:length(names)
+            fprintf(1,'   %s\n',names{n});
+        end
+        return;
+    case 'b'
+        for n=1:length(smodules)
+            idx = find(ismember({modules(:).name},smodules{n}));
+            build_my_mex_module(modules(idx)); %#ok<FNDSB>
+        end
+    case 'c'
+        for n=1:length(smodules)
+            idx = find(ismember({modules(:).name},smodules{n}));
+            clean_my_mex_module(modules(idx)); %#ok<FNDSB>
+        end
+    case 'm'
+        for n=1:length(smodules)
+            idx = find(ismember({modules(:).name},smodules{n}));
+            missing_my_mex_module(modules(idx)); %#ok<FNDSB>
+        end
 end
 
 cd(oldpath);
+end
+
+function missing_my_mex_module(module)
+totest = fullfile(module.dest,[module.name,'.',mexext]);
+if(~exist(totest,'file'))
+    fprintf(1,'Module <%s> in <%s> has not been built yet\n',[module.name,'.',mexext],module.dest);
+end
+end
 
 function clean_my_mex_module(module)
-if(~module.ignore)
-    todelete = fullfile(module.dest,[module.name,'.',mexext]);
-    if(exist(todelete,'file'))
-        fprintf(1,'Removing <%s> from <%s>\n',[module.name,'.',mexext],module.dest);
-        delete(todelete);
-    else
-        fprintf(1,'Couldn''t find <%s> in <%s> [SKIP DELETION]\n',[module.name,'.',mexext],module.dest);
-    end
+todelete = fullfile(module.dest,[module.name,'.',mexext]);
+if(exist(todelete,'file'))
+    fprintf(1,'Removing <%s> from <%s>\n',[module.name,'.',mexext],module.dest);
+    delete(todelete);
+else
+    fprintf(1,'Couldn''t find <%s> in <%s> [SKIP DELETION]\n',[module.name,'.',mexext],module.dest);
 end
 end
 
 function build_my_mex_module(module)
-if(~module.ignore)
-    cwd = pwd;
-    cd(module.src);
-    if(~ispc)
-        mex( '-R2018a', ...
-            module.flags{:}, ...
-            [module.name,'.cpp'], ...
-            module.depends{:}, ...
-            module.links{:} ...
-            );
-    else
-        LPATH = fullfile(matlabroot,'extern','lib',computer('arch'),'microsoft');
-        mex( '-R2018a', ...
-            module.flags{:}, ...
-            ['-L',LPATH], ...
-            [module.name,'.cpp'], ...
-            module.depends{:}, ...
-            module.links{:} ...
-            );
-    end
-    fprintf(1,'Moving <%s> to <%s>\n',[module.name,'.',mexext],module.dest);
-    movefile( [module.name,'.',mexext], module.dest );
-    cd(cwd);
+cwd = pwd;
+cd(module.src);
+if(~ispc)
+    mex( '-R2018a', ...
+        module.flags{:}, ...
+        [module.name,'.cpp'], ...
+        module.depends{:}, ...
+        module.links{:} ...
+        );
+else
+    LPATH = fullfile(matlabroot,'extern','lib',computer('arch'),'microsoft');
+    mex( '-R2018a', ...
+        module.flags{:}, ...
+        ['-L',LPATH], ...
+        [module.name,'.cpp'], ...
+        module.depends{:}, ...
+        module.links{:} ...
+        );
 end
+fprintf(1,'Moving <%s> to <%s>\n',[module.name,'.',mexext],module.dest);
+movefile( [module.name,'.',mexext], module.dest );
+cd(cwd);
 end

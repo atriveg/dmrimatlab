@@ -75,6 +75,9 @@ function [eap,dti,lattice,Qx,Qy,Qz,res,lapl,lopt] = atti2hydidsi( atti, gi, bi, 
 %      tl, tu: the lower and upper thresholds, respectively, defining the
 %         range the dwi will lay within, so that tl should be close to 0
 %         and tu should be close to 1 (default: 1.0e-7, 1-1.0e-7).
+%      bcut: b-values over this value are ignored to estimate the diffusion
+%         tensor, which is used to transform the native space to the
+%         anatomical space (default: 2000 s/mm^2).
 %      ADC0: estimated diffusivity of free water at body temperature. It is
 %         used to determine the lower and upper bounds of the eigenvalues
 %         of the dti and perform sanity checks (default: 3.0e-3).
@@ -154,6 +157,7 @@ end
 opt.lambda = 1.0e-3;    optchk.lambda = [true,true];     % always 1x1 double
 opt.tl = 1.0e-7;        optchk.tl = [true,true];         % always 1x1 double
 opt.tu = 1-opt.tl;      optchk.tu = [true,true];         % always 1x1 double
+opt.bcut = 2000;        optchk.bcut = [true,true];       % always 1x1 double
 opt.ADC0 = 3.0e-3;      optchk.ADC0 = [true,true];       % always 1x1 double
 opt.tau = 35.0e-3;      optchk.tau = [true,true];        % always 1x1 double
 opt.Rth = 0.01;         optchk.Rth = [true,true];        % always 1x1 double
@@ -190,7 +194,7 @@ K       = (Nl+1)/2;
 % Sanity checks and helper variables:
 atti(atti<opt.tl) = opt.tl;
 atti(atti>opt.tu) = opt.tu;
-pdti = (bi<=2000);
+pdti = (bi<=opt.bcut);
 Ndti = length(find(pdti));
 assert(Ndti>=6,'At least 6 b-values must be less or equal than 2000 to proceed with DTI estimation');
 use_parallel = use_parallel_test;
@@ -237,7 +241,7 @@ optim.ctol   = opt.ctol;
 % -----
 if(opt.usemex)
     [eapM,QxM,QyM,QzM,resm,laplm,loptm] = atti2hydidsi_( double(atti'), double(dti2'), gi, qi, ...
-        lattice, lambda, DFT, [u(:),v(:),w(:)], ADC0, lRth, optim, opt.maxthreads );
+        lattice, lambda, DFT, [u(:),v(:),w(:)], ADC0, lRth, tau, optim, opt.maxthreads );
     eapM = eapM';
 else
     NVs   = 50;
@@ -249,7 +253,7 @@ else
     if(use_parallel) % Parallel implementation
         parfor q=1:Q
             [eap,Qx,Qy,Qz,resn,lapln,lopt] = one_voxel_eap( atti(q,:), dti2(q,:), gi, qi, ...
-                lattice, lambda, DFT, u, v, w, ADC0, lRth, const, optim );
+                lattice, lambda, DFT, u, v, w, ADC0, lRth, const, optim, q );
             eapM(q,:) = eap;
             QxM(q)    = Qx;
             QyM(q)    = Qy;
@@ -317,7 +321,7 @@ lopt = reshape(lopt,[M,N,P]);
 % -------------------------------------------------------------------------
 
 function [eap,Qx,Qy,Qz,resn,lapln,lopt] = one_voxel_eap( atti, dti, gi, qi, lattice, ...
-    lambda, DFT, u, v, w, ADC0, lRth, const, optim, q )
+    lambda, DFT, u, v, w, ADC0, lRth, const, optim, ~ )
 % The function that does it all:
 % atti:    1 x G
 % dti:     1 x 6
@@ -421,11 +425,16 @@ if(const) % Constrained problem -> QP
     %    eap = quadprog(H,b,[],[],Fe0,1,zeros(size(eap)),[],eap,optim);
     %
     % We use a home-made function:
-    [eap,~,~] = dmriQuadprog(H,b,Fe0',eap, ...
+    %[eap,~,~] = dmriQuadprog(H,b,Fe0',eap, ...
+    %    optim.miters, ...
+    %    optim.otol, ...
+    %    optim.stol, ...
+    %    optim.ctol );
+    lb = zeros(size(H,1),1);
+    [eap,~,~] = dmriQuadprog2( H, b, [], [], Fe0, 1, lb, [], ...
         optim.miters, ...
         optim.otol, ...
-        optim.stol, ...
-        optim.ctol );
+        optim.stol );
 end
 resn  = ( double(atti(1,bw)') - Fe*eap );
 lapln = DFT*eap;

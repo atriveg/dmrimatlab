@@ -1,4 +1,4 @@
-% test_dmri_2F1mex
+% test_dmri_2F1_
 clear;
 x     = -[-1,-0.99999999,-0.9999999,-0.999999,-0.99999,-0.9999,-0.999,-0.9,-0.5,0.12,0.77,0.999,0.999999,0.999999999,1.0,1.000000001,1.000001,1.001,1.13,5.2,13.4,24.7,51.7,99.2,200.3,400.5,800.3,1200.7,2000.9];
 % Should not use interger values of gamma 2 or greater, since otherwise the
@@ -31,7 +31,7 @@ for n=1:length(gamma)
         % missbehavior:
         f1 = [ nan, hypergeom([1/2,gamma(n)/2],3/2,x(2:end)) ];
     end
-    f2 = dmri_2F1mex( ...
+    f2 = dmri_2F1_( ...
         gamma(n), ...
         x );
     hl(n) = plot(x,f1,'Marker','o','MarkerSize',20,'LineStyle','none','Color',cols(n,:));
