@@ -1,0 +1,29 @@
+This module is a free implementation for the Mean Apparent Propagator MRI (MAP-MRI) described
+by Ozarslan and colleagues:
+
+Ozarslan E, Koay CG, Shepherd TM, Komlosh ME, Irfanoglu MO, Pierpaoli C, Basser PJ.
+Mean apparent propagator (MAP) MRI: a novel diffusion imaging method for mapping
+tissue microstructure. Neuroimage 78:16-32. Elsevier, 2013.
+
+It is based on the implementation suggested by Fick and colleagues, where a penalty term
+for the energy of the Laplacian is used for regularization:
+
+Fick RHJ, Wassermann D, Caruyer E, Deriche R. MAPL. Tissue microstructure estimation
+using Laplacian-regularized MAP-MRI and its application to HCP data.
+Neuroimage 134:365-385. Elsevier, 2016.
+
+The anisotropic weighting based on DTI estimation described by Ozarslan is used. Besides,
+the problem is stated as a quadratic programming one, i.e. both positivity constraints over
+the EAP and a unit-mass equality constraint are imposed.
+
+NOTE: This module is not aimed at mimicking the behavior of the MAP-MRI/MAPL implementation
+within Python's dipy module. For example, in our code the positivity constraints are imposed
+over a Cartesian grid defined in the normalized EAP space, instead of a spherical grid on
+the domain of the attenuation signal E(q). We use a custom quadratic programming routine,
+which does not depend on CVX or other third parties. Finally, in case Generalized Cross
+Validation (GCV) is used, the (exhaustive) search is perfomed in the logarithmic domain of
+the regularization parameter.
+
+We have checked our implementation to be acceptably fast/accurate up to a maximum Nmax = 6
+with >650 constraints for HCP-MGH data (shells up to 5,000 s/mm^2).
+

@@ -1,5 +1,19 @@
 # dmrimatlab
-This is a complete Matlab toolbox (including multi-threaded C/C++-mex code) for diffusion MRI processing. See complete description in: http://www.lpi.tel.uva.es/dmrilab
+This is a complete Matlab toolbox (including multi-threaded C/C++-mex code) for diffusion MRI processing (see complete description in: http://www.lpi.tel.uva.es/dmrilab).
+
+It includes:
+
+- The classical Diffusion Tensor Imaging (DTI) formalism with linear and non-linear signal fitting.
+- High Angular Resolution Diffusion Imaging (HARDI):
+        - Spherical Harmonics (SH).
+        - Orientation Probability Density Transform (OPDT).
+        - Higher Order Tensors (HOT).
+- Diffusion Spectrum Imaging (DSI).
+- Spherical Means and Spherical Deconvolution (MiSFIT).
+- Mean Apparent Propagator MRI (MAP-MRI/MAPL).
+- Free-water elimination.
+- Denoising of Diffusion Weighted Images.
+- Representation of scalar maps, color-by-orientation, DTI glyphs, or ODF fields.
 
 Authors:
 
