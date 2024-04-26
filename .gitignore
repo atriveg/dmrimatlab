@@ -59,3 +59,10 @@ playground/dmri_gcv_debuggcv.m
 playground/findgcv_hydidsi.m
 playground/micro2shodf_debuggcv.m
 playground/README.txt
+mexcode/mapl/@mapl/maplLibTest2.py
+mexcode/mapl/@mapl/maplLibTest.py
+mexcode/mapl/@mapl/maplLib.cpp
+mexcode/mapl/@mapl/Makefile
+mexcode/mapl/@hermite/Makefile
+mexcode/mapl/@hermite/hermiteLibTest.py
+mexcode/mapl/@hermite/hermiteLib.cpp
