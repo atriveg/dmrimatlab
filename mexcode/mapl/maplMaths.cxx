@@ -151,7 +151,7 @@ namespace mapl
      *    [EAP(ux*x,uy*y,uz*z)]_{N} = [Psi]_{NxM} * [coeffs]_{M}
      * NOTE: It is assumed that x, y, z have been already (externally) divided 
      * by ux, uy, uz. Accordingly, the (external) evaluations of
-     * Hermite polynomials have also been done at x/qx, y/qy, z/qz
+     * Hermite polynomials have also been done at x/ux, y/uy, z/uz
      * NOTE: xPols, yPols, and zPols will be modified in-place, and will 
      * eventually become multiplied by exp(-x*x/2), exp(-y*y/2), exp(-z*z/2).
      * 

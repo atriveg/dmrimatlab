@@ -5,7 +5,7 @@ function [G,sets] = designGradients(N,varargin)
 %    (half) the surface of the unit sphere. N can be either a scalar 
 %    integer (for single-shell samplings) or a vector of integers (for
 %    multi-shell samplings), for which each entry represents the number of
-%    gradients per shell. The algorothm proceeds in two steps:
+%    gradients per shell. The algorithm proceeds in two steps:
 %
 %      1- Using spiralPhyllotaxis, it finds a roughly evenly spaced
 %         distribution fulfilling the requirements on the number of 
