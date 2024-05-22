@@ -15,7 +15,7 @@ namespace mapl
 #ifndef PI
 #define PI 3.14159265358979323846
 #endif
-
+    
     unsigned long numBasisFunctions( const unsigned int maxL );
     
     void allocateDictionaryBuffers( double*& x, double*& y, double*& z,
@@ -45,6 +45,13 @@ namespace mapl
                                double* qxPols, double* qyPols, double* qzPols,
                                double* Phi,
                                const unsigned long Q, const unsigned int maxL );
+
+    void computeODFDictionary( const double* dx, const double* dy, const double* dz,
+                               const double* pCoeffs,
+                               double* pCoeffsx, double* pCoeffsy, double* pCoeffz,
+                               double* pConv1, double* pConv2,
+                               double* Psi, const double& ux, const double& uy, const double& uz,
+                               const unsigned long N, const unsigned int maxL, const double& contrast=2.0 );
     
     void computeRegularizationMatrix( double* U,
                                       const double* Snm, const double* Tnm, const double* Unm,

@@ -73,6 +73,11 @@ if(size(bi,2)~=1)
     error('The b-values vector must be a column vector');
 end
 assert( isequal(size(dti),[M,N,P,6]), 'The DTI volume should be M x N x P x 6, with M,N,P the same as the MAPL volume' );
+% Make sure the gi are normalized:
+ni = sqrt(sum(gi.*gi,2));
+gi(:,1) = gi(:,1)./ni;
+gi(:,2) = gi(:,2)./ni;
+gi(:,3) = gi(:,3)./ni;
 % Parse the optional input arguments:
 % -------------------------------------------------------------------------
 opt.ADC0 = 3.0e-3;      optchk.ADC0 = [true,true];       % always 1x1 double

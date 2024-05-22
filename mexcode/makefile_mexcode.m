@@ -256,6 +256,14 @@ modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/MAPL'];
 mid = mid+1;
 % -----------------
+modules(mid).name = 'mapl2odf_';
+modules(mid).src = './mapl';
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp','./hermitePols.cxx','./maplMaths.cxx','../mathsmex/sanityCheckDTI.cxx'};
+modules(mid).links  = [ blaslinks, trlinks ];
+modules(mid).flags = blasflags;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/MAPL'];
+mid = mid+1;
+% -----------------
 modules(mid).name = 'mexDMRIquadprog';
 modules(mid).src = './quadprog';
 modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','dmriquadprog.cxx'};

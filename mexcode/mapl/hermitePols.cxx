@@ -127,6 +127,30 @@ namespace hermpols
     }
 
     /**
+     * Compute the coefficients of a deg1+deg2 degree polynomial, coeffs3,
+     * which is the product of the deg1 degree polynomial with coefficients
+     * coeffs1 times the deg2 polynomial with coefficients coeffs2, all of
+     * them in ascending powers.
+     * Note this is equivalente to a discrete convolution. All buffers must
+     * be externally maintained, with minimum sizes:
+     *    coeffs1: deg1+1
+     *    coeffs2: deg2+1
+     *    coeffs3: deg1+deg2+1
+     */
+    void multiplyPols( const double* coeffs1, const double* coeffs2, double* coeffs3,
+                      const unsigned int deg1, const unsigned int deg2 )
+    {
+        for( unsigned int n=0; n<=deg1+deg2; ++n ){
+            coeffs3[n] = 0.0;
+            unsigned int start = ( n>=deg2 ? n-deg2 : 0 );
+            unsigned int end   = ( n>=deg1 ? deg1   : n );
+            for( unsigned int m=start; m<=end; ++m )
+                coeffs3[n] += coeffs1[m]*coeffs2[n-m];
+        }
+        return;
+    }
+
+    /**
      * Handy print of the first maxdeg Hermite polynomials
      * to the standard output
      */

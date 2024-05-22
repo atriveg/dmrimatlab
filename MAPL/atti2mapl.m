@@ -131,6 +131,11 @@ end
 if(size(bi,2)~=1)
     error('The b-values vector must be a column vector');
 end
+% Make sure the gi are normalized:
+ni = sqrt(sum(gi.*gi,2));
+gi(:,1) = gi(:,1)./ni;
+gi(:,2) = gi(:,2)./ni;
+gi(:,3) = gi(:,3)./ni;
 % Parse the optional input arguments:
 % -------------------------------------------------------------------------
 opt.Nmax = 4;           optchk.Nmax = [true,true];       % always 1x1 double

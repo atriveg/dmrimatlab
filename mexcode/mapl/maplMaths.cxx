@@ -2,13 +2,15 @@
 #define _maplMaths_cxx_
 
 #include "maplMaths.h"
+#include "hermitePols.h"
 #include <cmath>
+#include <cstring> // memcpy
 #include <stdio.h>
 #include <iostream>
 
 namespace mapl
 {
-
+    
     /**
      * Implements eq. (29) in Ozarslan's paper
      * 
@@ -160,7 +162,7 @@ namespace mapl
      *   x     [size N]:          the normalized (and rotated) 1st coordinate in the EAP domain
      *   y     [size N]:          the normalized (and rotated) 2nd coordinate in the EAP domain
      *   z     [size N]:          the normalized (and rotated) 3rd coordinate in the EAP domain
-     *  - Previously computed with hermpols::computePols(), modified on exit so that they
+     *  - Previously computed with hermpols::evaluateAllPols(), modified on exit so that they
      *    become multiplied by exp(-x*x/2), exp(-y*y/2), exp(-z*z/2):
      *   xPols [size N*(maxL+1)]: the values of all Hermite polynomials up to order maxL evaluated at x (rotated, normalized)
      *   yPols [size N*(maxL+1)]: the values of all Hermite polynomials up to order maxL evaluated at y (rotated, normalized)
@@ -228,7 +230,7 @@ namespace mapl
      *   qx     [size Q]:          the normalized (and rotated) 1st coordinate in the E(q) domain
      *   qy     [size Q]:          the normalized (and rotated) 2nd coordinate in the E(q) domain
      *   qz     [size Q]:          the normalized (and rotated) 3rd coordinate in the E(q) domain
-     *  - Previously computed with hermpols::computePols(), , modified on exit so that they
+     *  - Previously computed with hermpols::evaluateAllPols(), modified on exit so that they
      *    become multiplied by exp(-qx*qx/2), exp(-qy*qy/2), exp(-qz*qz/2):
      *   qxPols [size Q*(maxL+1)]: the values of all Hermite polynomials up to order maxL evaluated at qx
      *   qyPols [size Q*(maxL+1)]: the values of all Hermite polynomials up to order maxL evaluated at qy
@@ -282,6 +284,167 @@ namespace mapl
                 }
             }
         }
+        return;
+    }
+
+    /**
+     * This function does not implement any of the equations in Ozarslan's
+     * paper. It creates a complete dictionary, say Psi, that relates
+     * MAP-MRI coefficients to the values of the Orientation Ditribution
+     * Function (ODF) at desired (unit norm) spatial directions. Note the
+     * EAP is the product of three Hermite polynomials times a negative
+     * quadratic exponential, hence its integration along the radial
+     * coordinate reduces to the sum of many terms of the form:
+     *
+     *  Integral( a_i(n1,n2,n3;ux,uy,uz;dx,dy,dz)*r^(i+2)*exp(-K*r^2),
+     *                                                        r=0..infty )
+     *
+     * i.e. a sum of weighted Gamma functions evaluated in semi-integer
+     * numbers. After this function is called, we can compute the ODF
+     * like: [ODF(dx,dy,dz)]_{N} = [Psi]_{NxM} * [coeffs]_{M}
+     *
+     * All buffers are externally maintained:
+     *
+     *  - Inputs to the algorithm:
+     *   dx [size N]: the 1st coordinate of each unit direction
+     *   dy [size N]: the 2nd coordinate of each unit direction
+     *   dz [size N]: the 3rd coordinate of each unit direction
+     *  - Previously computed with hermpols::computePols():
+     *   pCoeffs [size (maxL+1)x(maxL+1)]: coefficients of the first (maxL+1) Hermite polynomials
+     *  - To be filled inside the function, all of them allocated
+     *    with hermpols::allocatePolynomialCoeffs():
+     *   pCoeffsx [size (maxL+1)x(maxL+1)]: modified coeffients to compute H_{n1}(dx/ux*r)
+     *   pCoeffsy [size (maxL+1)x(maxL+1)]: modified coeffients to compute H_{n2}(dy/uy*r)
+     *   pCoeffsz [size (maxL+1)x(maxL+1)]: modified coeffients to compute H_{n3}(dz/uz*r)
+     *  - Auxiliary buffers to compute vector convolutions (polynomial
+     *    products); note that n1+n2+n3 equals, at the very most, maxL,
+     *    so that we only need these buffers to have size maxL+1:
+     *   pConv1 [size (maxL+1)]: coefficients of H_{n1}*H_{n2}
+     *   pConv2 [size (maxL+1)]: coefficients of H_{n1}*H_{n2}*H_{n3}
+     *  - Output:
+     *   Psi [size N*M]: the dictionary (note M can be computed as M = numBasisFunctions(maxL))
+     *
+     * NOTE: It is assumed (the function will not check it) that maxL is an
+     * even integer. Otherwise, the computation makes no sense.
+     */
+    void computeODFDictionary( const double* dx, const double* dy, const double* dz,
+                               const double* pCoeffs,
+                               double* pCoeffsx, double* pCoeffsy, double* pCoeffsz,
+                               double* pConv1, double* pConv2,
+                               double* Psi, const double& ux, const double& uy, const double& uz,
+                               const unsigned long N, const unsigned int maxL, const double& contrast )
+    {
+        // Useful constants:
+        const unsigned long pcNum = hermpols::polsCoeffsSize( maxL );
+        // We will proceed direction-by-direction, so that we only have
+        // to hard-copy and correct polynomial coefficients once:
+        for( unsigned long n=0; n<N; ++n ){ // For each ODF direction
+            // Compute the coefficients of the Hermite polynomials
+            // evaluated, respectively, at dx/ux*r, dy/uy*r, dz/uz*r.
+            // Within pCoeffs, the i-th column contains de coeffs
+            // of the i-th polynomial in ascending order.
+            memcpy( pCoeffsx, pCoeffs, pcNum*sizeof(double) );
+            memcpy( pCoeffsy, pCoeffs, pcNum*sizeof(double) );
+            memcpy( pCoeffsz, pCoeffs, pcNum*sizeof(double) );
+            const double wx0 = dx[n]/ux;
+            const double wy0 = dy[n]/uy;
+            const double wz0 = dz[n]/uz;
+            double wx = 1.0;
+            double wy = 1.0;
+            double wz = 1.0;
+            for( unsigned int j=0; j<=maxL; ++j ){ // For each degree
+                for( unsigned int i=j; i<=maxL; ++i ){ // For each polynomial
+                    pCoeffsx[j+(maxL+1)*i] *= wx;
+                    pCoeffsy[j+(maxL+1)*i] *= wy;
+                    pCoeffsz[j+(maxL+1)*i] *= wz;
+                }
+                wx *= wx0;
+                wy *= wy0;
+                wz *= wz0;
+            }
+            // Compute the constant in the argument of the exponential,
+            // exp(-K*r^2) = exp( -.5*(dx^2/ux^2+dy^2/uy^2+dz^2/uz^2)*r^2)
+            const double K = 0.5*(  wx0*wx0 + wy0*wy0 + wz0*wz0 );
+            // Now, loop through the basis functions:
+            unsigned long pos = 0; // Global position of the basis function
+            for( unsigned int L=0; L<=maxL; L+=2 ){ // Loop through even integers
+                for( unsigned int n1=0; n1<=L; ++n1 ){
+                    for( unsigned int n2=0; n2<=L-n1; ++n2 ){
+                        unsigned int n3 = L-n1-n2; // n1+n2+n3 must sum up to L
+                        // At this point we have all three indices n1, n2 and n3
+                        // that we can use to point to the proper Hermite
+                        // polynomials. The value of pos indexes the overall
+                        // position of the present dictionary atom.
+                        // Compute first the normalization constants:
+                        double normx = sqrt( pow(2.0,n1+1) * PI * tgamma(n1+1)  ) * ux;
+                        double normy = sqrt( pow(2.0,n2+1) * PI * tgamma(n2+1)  ) * uy;
+                        double normz = sqrt( pow(2.0,n3+1) * PI * tgamma(n3+1)  ) * uz;
+                        double norm  = 1.0/(normx*normy*normz);
+                        // Compute the coefficients of the polynomial obtained
+                        // from the product of H_{n1}(dx/ux*r)*H_{n2}(dy/uy*r)
+                        // *H_{n3}(dz/uz*r), which is a polynomial of degree L
+                        // in r. Note H_{ni}(di/ui*r) can be casted into a
+                        // polynomial in r by multiplying the coefficients of
+                        // H_{ni} by the successuve powers of di/ui, which is
+                        // exactly what we did to compute pCoeffsx, pCoeffsy,
+                        // and pCoeffsz. Hence, we only have to convolve the
+                        // coefficients:
+                        hermpols::multiplyPols( &pCoeffsx[(maxL+1)*n1],
+                                               &pCoeffsy[(maxL+1)*n2], pConv1, n1, n2 );
+                        hermpols::multiplyPols( pConv1, &pCoeffsz[(maxL+1)*n3],
+                                               pConv2, n1+n2, n3 );
+                        // Now, the L+1 first positions of pConv2 contain the
+                        // coefficients of the product of the three polynomials
+                        // in ascending order. Therefore, it only remains to
+                        // compute all the integrals and sum up:
+                        double sum  = 0.0;
+                        double sqK  = sqrt(K);
+                        // The basic implementation to compute the probabilistic
+                        // ODF should be:
+                        //    double sqK3 = sqK*sqK*sqK; // K^(3/2)
+                        //    double g32  = sqrt(PI)/2;  // Gamma(3/2)
+                        //    double g42  = 1.0;  // Gamma(4/2) = Gamma(2)
+                        // Indeed, this can be generalized to compute
+                        //    Integral( r^q*EAP(dx*r,dy*r,dz*r), r=0...infty )
+                        // for any q>-1 (q=2 stands for the probabilistic OPDF
+                        // as described by Tristán-Vega et al. NeuroImage, 2009;
+                        // q=0 stands for the ODF as described in Tuch's Q-Balls):
+                        double sqK3 = pow( sqK, contrast+1.0 );
+                        double g32  = tgamma( 0.5*(contrast+1.0) );
+                        double g42  = tgamma( 0.5*(contrast+2.0) );
+                        bool even   = true;
+                        for( unsigned int d=0; d<=L; ++d){ // pConv2 has degree n1+n2+n3=L
+                            // Compute:
+                            //    a_d * Integral( r^2 * r^d * exp(-K*r^2), r=0..infty )
+                            //                   = sqrt(K^(d+3))/2 * Gamma((d+3)/2);
+                            if(even){
+                                sum += pConv2[d] * g32 / sqK3;
+                                // For the probabilistic ODF:
+                                //    g32 *= 0.5*(double)(d+3);
+                                // But, in general:
+                                g32 *= 0.5*( (double)d + contrast + 1.0 );
+                            }
+                            else{
+                                sum += pConv2[d] * g42 / sqK3;
+                                // For the probabilistic ODF:
+                                //    g42 *= 0.5*(double)(d+3);
+                                // But, in general:
+                                g42 *= 0.5*( (double)d + contrast + 1.0 );
+                            }
+                            even  = !even;
+                            sqK3 *= sqK;
+                        } // for( unsigned int d=0; d<=L; ++d)
+                        // It only remains to normalize the value with the factor
+                        // 0.5 left within the integral and the normalization of
+                        // the basis function itself:
+                        Psi[n+pos*N] = 0.5 * norm * sum;
+                        // We are done with this dictionary atom:
+                        pos++;
+                    } // for( unsigned int n2=0; n2<=L-n1; ++n2 )
+                } // for( unsigned int n1=0; n1<=L; ++n1 )
+            } // for( unsigned int L=0; L<=maxL; L+=2 )
+
+        } // for( unsigned long n=0; n<N; ++n )
         return;
     }
     

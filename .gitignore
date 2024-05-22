@@ -66,3 +66,6 @@ mexcode/mapl/@mapl/Makefile
 mexcode/mapl/@hermite/Makefile
 mexcode/mapl/@hermite/hermiteLibTest.py
 mexcode/mapl/@hermite/hermiteLib.cpp
+mexcode/mapl/@test/Makefile
+mexcode/mapl/@test/test
+mexcode/mapl/@test/test.cpp

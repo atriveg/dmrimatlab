@@ -46,6 +46,9 @@ namespace hermpols
 
     void evaluateAllPols(const double* coeffs, const double* x, double* f, const unsigned int maxdeg, const unsigned long N);
 
+    void multiplyPols( const double* coeffs1, const double* coeffs2, double* coeffs3,
+                      const unsigned int deg1, const unsigned int deg2 );
+
     void printPols( const double* coeffs, const unsigned int maxdeg );
 
 } // namespace hermpols
