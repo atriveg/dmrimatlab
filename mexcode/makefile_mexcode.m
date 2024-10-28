@@ -272,6 +272,14 @@ modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tests'];
 mid = mid+1;
 % -----------------
+modules(mid).name = 'mapl2samples';
+modules(mid).src = './mapl';
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp','./hermitePols.cxx','./maplMaths.cxx','../mathsmex/sanityCheckDTI.cxx'};
+modules(mid).links  = [ blaslinks, trlinks ];
+modules(mid).flags = blasflags;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/MAPL'];
+mid = mid+1;
+% -----------------
 
 if(nargin>1)
     if( action=='x' )

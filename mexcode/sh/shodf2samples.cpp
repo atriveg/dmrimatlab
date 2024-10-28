@@ -43,7 +43,7 @@ typedef struct drand48_data drand48_data;
 class ThArgs : public DMRIThreader
 {
 public:
-    SizeType N;                // The number of sampels to generate
+    SizeType N;                // The number of samples to generate
     SizeType Nth;              // The number of samples generated at this thread
     BufferType theta;          // The buffer (size N) where the theta coordinate is stored
     BufferType phi;            // The buffer (size N) where the phi coordinate is stored
@@ -124,7 +124,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
             shodf2samples_seed( (unsigned short*)seed16v );
         }
         else if( mxGetNumberOfElements(prhs[3]) == 3 ){
-            // Seedactually passed. Use it
+            // Seed actually passed. Use it
             seed16v[0] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[3])[0]) % 0x1000000000000 );
             seed16v[1] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[3])[1]) % 0x1000000000000 );
             seed16v[2] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[3])[2]) % 0x1000000000000 );
@@ -226,7 +226,6 @@ THFCNRET shodf2samples_process_fcn( void* inargs )
     double* buffer  = shmaths::allocateBufferForEvenAssociatedLegendrePolynomials(args->L);
     double* buffer2 = shmaths::allocateBufferForAssociatedLegendrePolynomials(args->L);
     
-    IndexType pos;
     SizeType MAXITERS = (SizeType)::ceil(100*(args->c));
     
     // ---------------------------------------------------------------
@@ -240,7 +239,7 @@ THFCNRET shodf2samples_process_fcn( void* inargs )
         for( IndexType i=start; i<end; ++i ){
             SizeType iters = 0;
             bool rejected = true;
-            while( rejected & (iters<MAXITERS) ){
+            while( rejected && (iters<MAXITERS) ){
                 // ----------------------------------------------------------
                 shodf2samples_randn3d( &rnd, &x, &y, &z );
                 r = ::sqrt(x*x+y*y+z*z);
@@ -256,7 +255,6 @@ THFCNRET shodf2samples_process_fcn( void* inargs )
                 drand48_r( &rnd, &sample );
                 sample *= (args->c) / (4*PI);
                 // ----------------------------------------------------------
-                pos    = 0;
                 target = shodf2samples_evalshodf( args->SH, args->L,
                         phi, theta, Ylm, buffer, buffer2 );
                 rejected = (sample>target);
