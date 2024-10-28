@@ -44,7 +44,7 @@ function save_untouch_nii(nii, filename)
          error('Please check filename.');
       end
 
-      if str2num(v(1:3)) < 7.1 | ~usejava('jvm')
+      if ~nii_check_gzip_available
          error('Please use MATLAB 7.1 (with java) and above, or run gunzip outside MATLAB.');
       else
          gzFile = 1;

@@ -127,9 +127,6 @@ function save_untouch_slice(slice, filename, slice_idx, img_idx, dim5_idx, dim6_
       error(msg);
    end
 
-
-   v = version;
-
    %  Check file extension. If .gz, unpack it into temp folder
    %
    if length(filename) > 2 & strcmp(filename(end-2:end), '.gz')
@@ -141,7 +138,7 @@ function save_untouch_slice(slice, filename, slice_idx, img_idx, dim5_idx, dim6_
          error('Please check filename.');
       end
 
-      if str2num(v(1:3)) < 7.1 | ~usejava('jvm')
+      if ~nii_check_gzip_available
          error('Please use MATLAB 7.1 (with java) and above, or run gunzip outside MATLAB.');
       elseif strcmp(filename(end-6:end), '.img.gz')
          filename1 = filename;
