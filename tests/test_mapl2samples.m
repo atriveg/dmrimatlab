@@ -4,14 +4,14 @@ clear;
 close('all');
 N  = 1e6;
 n_th = 100;
-Nmax = 6;
+Nmax = 8;
 tau = 40e-3;
 [atti,gi,bi] = generate_atti_signal;
 atti = reshape( atti, [1,1,1,size(atti,1)] );
 tic;
 [mapl,dti,lopt] = atti2mapl( atti, gi, bi, 'Nmax', Nmax, 'lambda', -3, ...
     'tl', 1.0e-12, 'tu', 1-1.0e-12, 'bcut', 1750, 'ADC0', 3.0e-3, ...
-    'tau', tau, 'const', true, 'constRad', 7, 'maxthreads', 6 );
+    'tau', tau, 'const', true, 'constRad', 9, 'maxthreads', 6 );
 T = toc;
 fprintf(1,'It took %1.5f seconds to fit the EAP\n',T)
 mapl = reshape( mapl, [1,numel(mapl)] );
@@ -50,10 +50,6 @@ eap_th = mapl2eap( ...
     'tau', tau, ...
     'ADC0', 3.0e-3   );
 eap_th = reshape(eap_th,[NG,NG,NG]);
-% % Sanity check: note teh EAP is not strictly
-% % enforced to be positive
-% eap_th(eap_th<0) = 0;
-% eap_th = eap_th/(sum(eap_th,'all')*hx*hy*hz);
 
 f_X = sum(sum(eap_th,1),3)*hy*hz;
 f_Y = sum(sum(eap_th,2),3)*hx*hz;
