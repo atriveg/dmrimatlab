@@ -94,12 +94,13 @@ function [mapl,dti,lopt] = atti2mapl( atti, gi, bi, varargin )
 %         constraints).
 %      constRad: if const is set true, inequality constraints of the form
 %         P(x_i,y_i,z_i) >= 0, i=1..CI are enforced in the quadratic
-%         program. This option controls the value of CI. In brief: a 3-D
-%         meshgrid of (2*constRad+1)x(2*constRad+1)x(2*constRad+1)
-%         points is arranged in the normalized (anatomical) R-space. Then,
-%         half of these points are discarded due to antipodal symmetry, and
-%         the remaining points are used for the constraints. This way,
-%         CI = ( (2*constRad+1)^3 + 1 )/2 (default: 5, hence CI=666).
+%         program. This option controls the value of CI. In brief: two 3-D
+%         spherical grids are arranged together in an interleaved scheme so
+%         that each one covers the normalized R-space in the long term
+%         (R<=10.0) and short term (R<=5.0). The number of constraints
+%         equals: CI = 2*45*constRad+1 (default: 7, hence CI=631). Note the
+%         number of inequality constraints dramatically impacts the
+%         computational load (hence the execution time) of the algorithm.
 %
 %   Other general options:
 %
@@ -146,7 +147,7 @@ opt.bcut = 2000;        optchk.bcut = [true,true];       % always 1x1 double
 opt.ADC0 = 3.0e-3;      optchk.ADC0 = [true,true];       % always 1x1 double
 opt.tau = 35.0e-3;      optchk.tau = [true,true];        % always 1x1 double
 opt.const = true;       optchk.const = [true,true];      % always 1x1 boolean
-opt.constRad = 5;       optchk.constRad = [true,true];   % always 1x1 double
+opt.constRad = 7;       optchk.constRad = [true,true];   % always 1x1 double
 opt.maxthreads = 1.0e6; optchk.maxthreads = [true,true];
 opt.mask = true(M,N,P); optchk.mask = [true,true];       % boolean the same size as the image field
 % -------------------------------------------------------------------------
@@ -192,21 +193,43 @@ dti2  = dti2(mask,:);
 % Create constraints, if necessary:
 xyz = [];
 if(opt.const)
-    % Simply create a Cartesian lattice of x-y-z coordinates in the
-    % normalized space, and force the EAP to be positive there. The
-    % Hermite functions (at least those of orders <=6) seem to vanish
-    % beyond abs(x)>12, so this is the upper bound we will consider for our
-    % grid
+    % We will create two interleaved sphercial meshes with evenly spaced
+    % raddi each:
+    %   - The first one, with a maximum normalized radius 10.0, for which
+    %     the tails of the Hermite functions reasonably vanish.
+    %   - The second one, with a maximum normalized radius 4.0, for which
+    %     most of the energy of the EAP is contained (this is based on
+    %     empirical considerations).
+    % In both cases, 45 gradient directions are designed (note that below a
+    % normalized radius 4.0 this implies an effective sampling of 30+30=60
+    % gradient directions.
+    % The number of radial samples is governed by the 'constRad' optional
+    % argument:
+    MX1 = 10.0;
+    MX2 = 4.0;
+    NG = 45;
     NP = max(round(opt.constRad),1);
-    x  = linspace( -12.0, 12.0, 2*NP+1 );
-    [x,y,z] = meshgrid(x,x,x);
-    x = x(:);
-    y = y(:);
-    z = z(:);
-    Nl = size(x,1);
-    x = x(floor(Nl/2):end);
-    y = y(floor(Nl/2):end);
-    z = z(floor(Nl/2):end);
+    % The radii are evenly spaced in both cases:
+    radii1 = (1:NP)/NP*MX1;
+    radii1 = ones(NG,1)*radii1;
+    radii1 = radii1(:);
+    radii2 = (1:NP)/NP*MX2;
+    radii2 = ones(NG,1)*radii2;
+    radii2 = radii2(:);
+    % The gradient directions of each mesh are desgined together to achieve
+    % a proper interleaving:
+    [G,sets] = designGradients( [NG,NG], ...
+        'weights', [1,1], ...
+        'nocomb', true );
+    G1 = G(sets==1,:);
+    G2 = G(sets==2,:);
+    G1 = repmat(G1,[NP,1]);
+    G2 = repmat(G2,[NP,1]);
+    % Put both meshes together and add the origin:
+    x = [0;radii1.*G1(:,1);radii2.*G2(:,1)];
+    y = [0;radii1.*G1(:,2);radii2.*G2(:,2)];
+    z = [0;radii1.*G1(:,3);radii2.*G2(:,3)];
+    % Put all together:
     xyz = [x,y,z];
 end
 % -------------------------------------------------------------------------
