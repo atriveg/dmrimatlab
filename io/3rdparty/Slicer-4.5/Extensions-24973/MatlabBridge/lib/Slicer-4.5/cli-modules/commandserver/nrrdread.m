@@ -104,7 +104,11 @@ assert(numel(dims) == ndims);
 if(isfield(img.metaData,'data_file'))
     fclose(fid);
     [pathstr,~,~]  = fileparts(filename);
-    data_file_name = [pathstr,filesep,img.metaData.data_file];
+    if(~isempty(pathstr))
+        data_file_name = [pathstr,filesep,img.metaData.data_file];
+    else
+        data_file_name = img.metaData.data_file;
+    end
     fid            = fopen(data_file_name, 'rb');
     assert(fid > 0, ['Could not open file at: ',data_file_name]);
 end
