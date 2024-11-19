@@ -13,7 +13,7 @@ function nrrd = dwinii2nrrd( niifile, nrrdfile, bvecfile, bvalfile )
 % function will look for their standard names. In any case the function can
 % return a structure <nrrd> as loaded by nrrdread().
 nrrd = [];
-bth  = 50;
+bth  = 25;
 % --------------------------------------------
 try
     nii = load_untouch_nii(niifile);
