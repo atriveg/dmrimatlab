@@ -92,7 +92,9 @@ bs = (ni<10*eps);
 ni = 1./ni;
 ni(bs) = 0;
 gi = gi.*ni;
-gi = gi.*(bi/1000);
+% Normalize according to:
+% https://www.na-mic.org/wiki/NAMIC_Wiki:DTI:Nrrd_format#Describing_DWIs_with_different_b-values
+gi = gi.*sqrt(bi/1000);
 % --------------------------------------------
 [bs,ps,Ns] = auto_detect_shells(bi,50);
 shelldesc = '';
