@@ -13,6 +13,7 @@ function nrrd = dwinii2nrrd( niifile, nrrdfile, bvecfile, bvalfile )
 % function will look for their standard names. In any case the function can
 % return a structure <nrrd> as loaded by nrrdread().
 nrrd = [];
+bth  = 50;
 % --------------------------------------------
 try
     nii = load_untouch_nii(niifile);
@@ -91,12 +92,22 @@ ni = sqrt(sum(gi.*gi,2));
 bs = (ni<10*eps);
 ni = 1./ni;
 ni(bs) = 0;
-gi = gi.*ni;
+gi = gi.*ni; % All have norm 1 but baselines, which have norm 0
 % Normalize according to:
+%
 % https://www.na-mic.org/wiki/NAMIC_Wiki:DTI:Nrrd_format#Describing_DWIs_with_different_b-values
-gi = gi.*sqrt(bi/1000);
+%
+% NOTE: Accroding to vtkMRMLNRRDStorageNode::ParseDiffusionInformation(),
+%       each bi is computed as:
+%
+%          bi = b0*( ||gi|| / max_i{||gi||} )^2,
+%
+%       where b0 is the reference value passed with theDWMRI_b-value tag
+bval0 = max(bi); %
+ni    = sqrt(bi/bval0);
+gi    = gi.*ni;
 % --------------------------------------------
-[bs,ps,Ns] = auto_detect_shells(bi,50);
+[bs,ps,Ns] = auto_detect_shells(bi,bth);
 shelldesc = '';
 for n=1:Ns
     count     = sum(ps==n);
@@ -136,7 +147,7 @@ end
 nrrd.metaData.measurement_frame = '(1.0,0.0,0.0) (0.0,1.0,0.0) (0.0,0.0,1.0)';
 nrrd.metaData.DWMRI_comments = sprintf('Converted from %s',niifile);
 nrrd.metaData.DWMRI_shells = shelldesc;
-nrrd.metaData.DWMRI_b_value = '1000.000000000';
+nrrd.metaData.DWMRI_b_value = sprintf('%1.9f',bval0);
 for g=0:size(gi,1)-1
     nrrd.metaData.(sprintf('DWMRI_gradient_%s',padgnumber(g))) = sprintf('%1.6f %1.6f %1.6f', ...
         gi(g+1,1), gi(g+1,2), gi(g+1,3) );
