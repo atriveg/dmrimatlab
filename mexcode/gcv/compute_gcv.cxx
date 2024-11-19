@@ -108,7 +108,7 @@ int computeGCV( const BufferType Phi,
         // If dposv worked appropriately, params->Pinv contains the
         // inverse of the original Pinv matrix, i.e.
         //      params->Pinv <- (Phi'*Phi + lambda*L'*L)^(-1)
-        // The value stored in Pinv is no longer valid (dpsov overwrites it)
+        // The value stored in Pinv is no longer valid (dposv overwrites it)
         if(info!=0)
             return -1;
         //-------------------------------------------------------------------
