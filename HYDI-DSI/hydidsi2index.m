@@ -19,8 +19,8 @@ function index = hydidsi2index(eap, lattice, Qx, Qy, Qz, varargin)
 %   Optional arguments may be passed as name/value pairs in the regular
 %   matlab style:
 %
-%      kind: string, one of 'rtop', 'rtpp', 'rtap', or 'msd', describing
-%         the actual index to coompute (default: 'rtop').
+%      kind: string, one of 'rtop', 'rtpp', 'rtap', 'msd', or 'qmsd', 
+%         describing the actual index to compute (default: 'rtop').
 %      mask: a MxNxP array of logicals. Only those voxels where mask is
 %         true are processed, the others are filled with zeros (default:
 %         all trues).
@@ -81,6 +81,27 @@ switch(lower(opt.kind))
         rr   = x.*x+y.*y+z.*z;
         indM = 2*sum(eap.*rr,2);
         indM = indM./(Qx.*Qy.*Qz);
+    case 'qmsd'
+        % ----
+        wx    = ((-1).^x)./(pi*pi)./(x.*x);
+        wx(1) = 1/12;
+        wx( (y~=0) | (z~=0) ) = 0;
+        wx    = (Qx.*Qx)*wx;
+        % ----
+        wy    = ((-1).^y)./(pi*pi)./(y.*y);
+        wy(1) = 1/12;
+        wy( (x~=0) | (z~=0) ) = 0;
+        wy    = (Qy.*Qy)*wy;
+        % ----
+        wz    = ((-1).^z)./(pi*pi)./(z.*z);
+        wz(1) = 1/12;
+        wz( (x~=0) | (y~=0) ) = 0;
+        wz    = (Qz.*Qz)*wz;
+        % ----
+        indM = ...
+            sum(eap.*wx,2) + ...
+            sum(eap.*wy,2) + ...
+            sum(eap.*wz,2);
     case 'mass' % Dumb sanity check
         indM = eap(:,1)+2*sum(eap(:,2:end),2);
         indM = indM./(Qx.*Qy.*Qz);
