@@ -152,7 +152,7 @@ modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/MiSFIT/utils'];
 mid = mid+1;
 % -----------------
-modules(mid).name = 'sh2squaredsh';
+modules(mid).name = 'sh2squaredsh_';
 modules(mid).src = './sh';
 modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx','../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = [ blaslinks, trlinks ];
