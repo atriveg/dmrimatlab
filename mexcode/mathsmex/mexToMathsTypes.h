@@ -15,9 +15,13 @@ typedef double ElementType;
 #endif
 
 typedef ElementType*  BufferType;
+
 typedef mwSize        SizeType;
+typedef SizeType*     SizeBuffer;
+
 typedef mwSignedIndex IndexType;
 typedef IndexType*    IndexBuffer;
+
 typedef mxArray*      MatrixType;
 
 #ifndef __realmin__

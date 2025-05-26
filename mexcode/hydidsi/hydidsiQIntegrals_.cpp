@@ -1,5 +1,5 @@
 /*==========================================================
- * hydidsiQIntegrals_.c
+ * hydidsiQIntegrals_.cpp
  *
  * This is a core function to hydidsi2shodf, and should only
  * be called from therein
