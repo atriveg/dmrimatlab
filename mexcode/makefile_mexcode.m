@@ -280,6 +280,30 @@ modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/MAPL'];
 mid = mid+1;
 % -----------------
+modules(mid).name = 'fastSweepingStep';
+modules(mid).src = './finslertractography';
+modules(mid).depends = {'../pixelIterators/iterators.cxx'};
+modules(mid).links  = {};
+modules(mid).flags = {};
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/finslertractography'];
+mid = mid+1;
+% -----------------
+modules(mid).name = 'backTracing_';
+modules(mid).src = './finslertractography';
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp','../pixelIterators/iterators.cxx'};
+modules(mid).links  = [ blaslinks, trlinks ];
+modules(mid).flags = blasflags;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/finslertractography'];
+mid = mid+1;
+% -----------------
+modules(mid).name = 'fiberTracking_';
+modules(mid).src = './dtiTractography';
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp','../pixelIterators/iterators.cxx'};
+modules(mid).links  = [ blaslinks, trlinks ];
+modules(mid).flags = blasflags;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tractography'];
+mid = mid+1;
+% -----------------
 
 if(nargin>1)
     if( action=='x' )
