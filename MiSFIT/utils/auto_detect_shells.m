@@ -1,10 +1,26 @@
-%%% -----------------------------------------------------------------------
 function [bs,ps,Ns] = auto_detect_shells(bi,bth)
-% bi:  Gx1, acquired shells "as they are"
-% bth: 1x1, threshold to tell if bi is equal or not to bj
-% bs:  Nsx1, the (averaged) b-value assigned to each shell
-% ps:  Gx1, tells which shell (from 1 to Ns) each bi belongs to
-% Ns:  1x1, the total number of shells
+% function [bs,ps,Ns] = auto_detect_shells(bi,bth)
+%
+%   This is a helper function to find clusters of b-values from a general
+%   dMRI samplig. In general, the b-values within one single shell may
+%   slightly differ from each other, so that a shell at 1000 s/mm^2 may
+%   contain values ~1005, 995, 1000, etcetera.
+%   This function takes the a Gx1 collection of b-values, 'bi', and parse
+%   it to identify the shells of the acquisition, with the condition that
+%   two b-values belong to the same shell whenever they differ less than
+%   'bth'
+%
+% INPUTS:
+%
+%   bi:  Gx1, acquired b-values "as they are"
+%   bth: 1x1, threshold to tell if bi is equal or not to bj
+%
+% OUTPUTS:
+%
+%   bs:  Nsx1, the (averaged) b-value assigned to each shell, i.e. the
+%     average of all b-values assigned to each shell. 
+%   ps:  Gx1, tells which shell (from 1 to Ns) each bi belongs to
+%   Ns:  1x1, the total number of shells
 
 [bi2,pt] = sort(bi,'ascend');      % Gx1, bi2 = bi(pt)
 bid      = [bth+1;diff(bi2)];      % Gx1

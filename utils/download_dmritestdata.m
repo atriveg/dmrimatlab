@@ -73,7 +73,28 @@
 %       Van Essen, D. C., Smith, S. M., Barch, D. M., Behrens, T. E.,
 %       Yacoub, E., Ugurbil, K., 2013. The WU-Minn Human Connectome
 %       Project: An overview. NeuroImage 80, 62–79.
-
+%
+% * test_data4.mat is an already processed volume (subejct 1, session 1)
+%   taken from the Cross-scanner and cross-protocol diffusion MRI data
+%   harmonisation database by the  Cardiff  University - Brain  Research  
+%   Imaging  Centre  (CUBRIC): https://www.cardiff.ac.uk/cardiff-
+%     university-brain-research-imaging-centre/research/projects/
+%     cross-scanner-and-cross-protocol-diffusion-MRI-data-harmonisation.
+%   This means you won't find the raw DWI data set, but signal models 
+%   already estimated from it, namely: the diffusion tensor volume and the
+%   lamda parallel/perpendicular and SH ODF coefficientes computed with 
+%   MiSFIT. The original, raw data were acquired at the UK National 
+%   Facility for In Vivo MR Imaging of Human Tissue Microstructure funded 
+%   by the EPSRC (grant EP/M029778/1), and The Wolfson Foundation.
+%
+%   In case you use dataset test_data.mat for your purposes, please
+%   consider citing:
+% 
+%       Tax, C. M., Grussu, F., Kaden, E., Ning, L., Rudrapatna, U., Evans,
+%       C. J., St-Jean, S., Leemans, A., Koppers,S., Merhof, D., et al., 
+%       2019. Cross-scanner and cross-protocol diffusion MRI data 
+%       harmonisation: A benchmark database and evaluation of algorithms. 
+%       NeuroImage 195, 285–299.
 
 help('download_dmritestdata');
 
@@ -158,6 +179,26 @@ catch
 end
 
 DFILE = 'test_data3.mat';
+try
+    fprintf(1,'[DOWNLOADING...] %s\n',[BASEURL,DFILE]);
+    fname = websave(DFILE,[BASEURL,DFILE]);
+    fname = strip_fname(fname);
+    if(~strcmp(fname,DFILE))
+        try
+            delete(fname);
+        catch
+        end
+        fprintf(1,'Something went wrong. Couldn''t download: %s [SKIP]\n',DFILE);
+    end
+catch
+    try
+        delete([DFILE,'.html']);
+    catch
+    end
+    fprintf(1,'Something went wrong. Couldn''t download: %s [SKIP]\n',DFILE);
+end
+
+DFILE = 'test_data4.mat';
 try
     fprintf(1,'[DOWNLOADING...] %s\n',[BASEURL,DFILE]);
     fname = websave(DFILE,[BASEURL,DFILE]);
