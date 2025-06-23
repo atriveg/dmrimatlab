@@ -1,7 +1,7 @@
 function [f,tens] = atti2freewaterTensor( atti, gi, bi, varargin )
 % function [f,tens] = atti2freewaterTensor( atti, gi, bi, 'opt1', value1, 'opt2', value2, ... )
 %
-%   Fits the mono-exponential ADC and free water fraction estimated from a
+%   Fits the DT-MRI and free water fraction estimated from a
 %   DWI model following a dumb exhaustive search/least squares fit
 %   procedure similar the one described by Koay et all:
 %
@@ -16,7 +16,7 @@ function [f,tens] = atti2freewaterTensor( atti, gi, bi, varargin )
 %   The signal S_i is assumed to follow a two-compartment mono-exponential
 %   model:
 %
-%      S_i(gi,bi) = f*S_0*exp(-bi*ADC(gi)) + (1-f)*S_0*exp(-bi*ADC0),
+%      S_i(gi,bi) = f*S_0*exp(-bi*ADC(gi)) + (1-f)*S_0*exp(-bi*gi^T·D·gi),
 %
 %   that is further regularized with the additional condition:
 %
@@ -24,11 +24,8 @@ function [f,tens] = atti2freewaterTensor( atti, gi, bi, varargin )
 %
 %   where f is the partial volume fraction of non-free (intra-cellular)
 %   water and ADC0 is the diffusivity of free water at body temperature,
-%   which has been empirically fixed near 3.0e-3 mm^2/s.  ADC(gi) is the 
-%   apparent diffusion coefficient of non-free water, a function defined 
-%   over the unit sphere to be fit at each image voxel in the basis of
-%   even spherical harmonics up to order L to yield a total of
-%   M=(L+1)*(L+2)/2 SH coefficients. f0 is an initial estimate of the
+%   which has been empirically fixed near 3.0e-3 mm^2/s. gi^T·D·gi is the 
+%   DT-MRI non-free water representation. f0 is an initial estimate of the
 %   actual value of f, and tau is a Tikhonov regularization parameter to
 %   fit the model. The value of f0 are subsequently updated as iterations
 %   proceed, so that f0 at iteration n+1 equals f at iteration n.
@@ -36,15 +33,11 @@ function [f,tens] = atti2freewaterTensor( atti, gi, bi, varargin )
 %   Then:
 %
 %         (S_i/S_0) * (1-f*(S_0/S_i)*exp(-bi*ADC_free)) / (1-f)
-%                     = exp(-bi*ADC(gi))
+%                     = exp(-bi*gi^T·D·gi)
 %      -> [-log(dwi*(1-f*exp(-bi*ADC)/dwi)/(1-f))]/bi
-%                     = sum_{m=1}^{M} SH(m)*Y_m(gi) [Linear Least Squares]
+%                     = gi^T·D·gi [Linear Least Squares]
 %
 %
-%   which is once again regularized with the usual Tikhonov redundant
-%   condition applied to the energy og the Laplacian of the ADC:
-%
-%      sqrt(lambda)*laplacian_eigenvalue(m)*SH(m) = 0, m=1...M
 %
 %   The two outputs of the function are:
 %
@@ -86,7 +79,7 @@ function [f,tens] = atti2freewaterTensor( atti, gi, bi, varargin )
 %         optimal value found at the previous depth level (default: 3).
 %   For the dumb iterative algorithm:
 %      O2: wether (true) or not (false) use the additional iterative step
-%         to look for f (default: true).
+%         to look for f (default: false).
 %      fiters: the algorithm alternates between optimizing the SH
 %         coefficients in a logarithmic domain for a fixed f and optimizing
 %         f in the natural domain for fixed SH coefficients. A max. number
@@ -111,7 +104,7 @@ function [f,tens] = atti2freewaterTensor( atti, gi, bi, varargin )
 %          decreases as the iteration proceed.
 %      rcm: minimum allowed condition number for the matrix to be inverted
 %          at each Newton-Raphson (or alike) step (default: 1.0e-9).
-%      lmb: [UNUSED] Inlcuded only for backwards compatibility.
+%      lmb: [UNUSED] Included only for backwards compatibility.
 %   Other general options:
 %      chunksz: the LLS problem reduces to the product of the dwi signal
 %         by an inverse matrix that may be pre-computed for the whole data
@@ -159,7 +152,7 @@ opt.fmax = 1;           optchk.fmax = [true,true];     % always 1x1 double
 opt.fbins = 5;          optchk.fbins = [true,true];    % always 1x1 double
 opt.fdepth = 3;         optchk.fdepth = [true,true];   % always 1x1 double
 % -------------------------------------------------------------------------
-opt.O2 = true;          optchk.O2 = [true,true];       % always 1x1 boolean
+opt.O2 = false;         optchk.O2 = [true,true];       % always 1x1 boolean
 opt.fiters = 20;        optchk.fiters = [true,true];   % always 1x1 double
 opt.fth = 0.01;         optchk.fth = [true,true];      % always 1x1 double
 % -------------------------------------------------------------------------
