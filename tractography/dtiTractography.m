@@ -60,8 +60,8 @@ function [paths,pvals,stopconds] = dtiTractography( dti, seeds, varargin )
 %                      [ R31*s1   R32*s2   R33*s3   o_z ]
 %                      [      0        0        0     1 ]
 %         where s1 to S3 are the resolutions (in millimeters) each voxel
-%         dimension has, [Rij] is the rotation matriz that aligns the voxel
-%         orientations to the anatomical orientations and o_x, o_y, o_zis 
+%         dimension has, [Rij] is the rotation matrix that aligns the voxel
+%         orientations to the anatomical orientations and o_x, o_y, o_z is 
 %         the anatomical origin of the image (default: eye(D+1)).
 %         NOTE: The ijk indices are assumed to be zero-based (like in any
 %         other software for medical imaging), so if you're planning to
