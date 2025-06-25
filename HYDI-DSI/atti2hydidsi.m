@@ -87,7 +87,7 @@ function [eap,dti,lattice,Qx,Qy,Qz,res,lapl,lopt] = atti2hydidsi( atti, gi, bi, 
 %         lattice node along each `x'-`y'-`z' axis will be placed in the
 %         position where the DTI-EAP falls to Rth times its value at the 
 %         origin, which is trivially computed from the eigenvalues l1, l2,
-%         and l3 (default: 0.01).
+%         and l3 (default: 0.05).
 %      lattice: the radii of the Cartesian grid where the eap will be
 %         sampled, whose size will be typically in the range 3 x 3 x 3. You
 %         may pass an empty array [] to let the function determine the
@@ -118,7 +118,7 @@ function [eap,dti,lattice,Qx,Qy,Qz,res,lapl,lopt] = atti2hydidsi( atti, gi, bi, 
 %         routines, so the performance is computer dependent. In POSIX
 %         systems the implementation is multi-threaded, so that you don't
 %         need a working license for the parallel computing toolbox to run
-%         the code in parallel (default: false). NOTE: if 'usemex' is set
+%         the code in parallel (default: true). NOTE: if 'usemex' is set
 %         true, the 'const' option is ignored and the constrained problem
 %         is always solved.
 %      maxthreads: if 'usemex' is set true, the algorithm is run as a 
@@ -160,10 +160,10 @@ opt.tu = 1-opt.tl;      optchk.tu = [true,true];         % always 1x1 double
 opt.bcut = 2000;        optchk.bcut = [true,true];       % always 1x1 double
 opt.ADC0 = 3.0e-3;      optchk.ADC0 = [true,true];       % always 1x1 double
 opt.tau = 35.0e-3;      optchk.tau = [true,true];        % always 1x1 double
-opt.Rth = 0.01;         optchk.Rth = [true,true];        % always 1x1 double
+opt.Rth = 0.05;         optchk.Rth = [true,true];        % always 1x1 double
 opt.lattice = [];       optchk.lattice = [true,false];   % variable size
 opt.const = true;       optchk.const = [true,true];      % always 1x1 boolean
-opt.usemex = false;     optchk.usemex = [true,true];     % always 1x boolean
+opt.usemex = true;     optchk.usemex = [true,true];     % always 1x boolean
 opt.maxthreads = 1.0e6; optchk.maxthreads = [true,true];
 % -------------------------------------------------------------------------
 opt.miters = 200;       optchk.miters = [true,true];
