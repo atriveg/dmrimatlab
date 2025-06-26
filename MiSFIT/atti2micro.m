@@ -159,7 +159,7 @@ opt.dC = 1.0e-6;        optchk.dC = [true,true];        % always 1x1 double
 opt.regf = true;        optchk.regf = [true,true];      % always 1x1 boolean
 opt.lpar = 1.7e-3;      optchk.lpar = [true,false];     % variable size double
 opt.forcelpar = false;  optchk.forcelpar = [true,true]; % always 1x1 boolean
-opt.nolpwarn = false;   opt.nolpwarn = [true,true];     % always 1x1 boolean
+opt.nolpwarn = false;   optchk.nolpwarn = [true,true];     % always 1x1 boolean
 % -------------------------------------------------------------------------
 opt.fmin = 0.01;        optchk.fmin = [true,true];      % always 1x1 double
 opt.fmax = 1;           optchk.fmax = [true,true];      % always 1x1 double
@@ -199,14 +199,14 @@ switch(Ns)
         if( opt.usef )
             warning('The free water compartment cannot be estimated from 1 shell. The ''usef'' flag will be ignored');
             if(~opt.nolpwarn)
-                warning('The ''lambapar'' will not be optimized, but fixed to the optional argument ''lpar'' instead');
+                warning('The ''lambdapar'' will not be optimized, but fixed to the optional argument ''lpar'' instead');
             end
             opt.usef = false;
         end
     case 2
         if( (opt.usef) && (~opt.forcelpar) )
             if(~opt.nolpwarn)
-                warning('To estimate the free water compartment up from two shells, the ''lambapar'' will not be optimized, but fixed to the optional argument ''lpar'' instead');
+                warning('To estimate the free water compartment up from two shells, the ''lambdapar'' will not be optimized, but fixed to the optional argument ''lpar'' instead');
             end
         end
     otherwise
