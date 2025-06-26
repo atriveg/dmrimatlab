@@ -157,7 +157,7 @@ opt.nmax = 100;         optchk.nmax = [true,true];      % always 1x1 double
 opt.dl = 1.0e-8;        optchk.dl = [true,true];        % always 1x1 double
 opt.dC = 1.0e-6;        optchk.dC = [true,true];        % always 1x1 double
 opt.regf = true;        optchk.regf = [true,true];      % always 1x1 boolean
-opt.lpar = 1.7e-3;      optchk.lpar = [true,false];     % variable size double
+opt.lpar = 2.0e-3;      optchk.lpar = [true,false];     % variable size double
 opt.forcelpar = false;  optchk.forcelpar = [true,true]; % always 1x1 boolean
 opt.nolpwarn = false;   optchk.nolpwarn = [true,true];     % always 1x1 boolean
 % -------------------------------------------------------------------------
