@@ -230,10 +230,12 @@ end
 
 % Check the consistency of the background image:
 if(ischar(opt.bgimage))
-    if(~strcmp(opt.bgimage,'none')) % opt.bgsh cannot be empty!
+    if(~strcmp(opt.bgimage,'none'))
+        if(isempty(opt.bgsh))
+            opt.bgsh = SH;
+        end
         [OK,msg] = plotdmri3d_check_bgsh_size(opt.bgsh,SH);
         assert(OK,msg);
-        
     end
 else % opt.bgimage must have the proper size
     assert(isequal(size(opt.bgimage),[M,N,P]),'The background image (bgimage) must be a string or a 3-D volume with size matching that of SH');
