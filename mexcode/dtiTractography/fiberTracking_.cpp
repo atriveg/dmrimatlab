@@ -127,9 +127,9 @@ void mexFunction( int nlhs, mxArray *plhs[],
     mexCallMATLAB(1, callstack, 0, NULL, "dbstack");
     char *callerFunc = mxArrayToString( mxGetField(callstack[0], 0, "name") );
     if( callerFunc==(char*)NULL )
-        mexErrMsgIdAndTxt("MyToolbox:fiberTracking_:callstack","This function should only be called from dtiTractography");
-    else if( strcmp(callerFunc,"dtiTractography") )
-        mexErrMsgIdAndTxt("MyToolbox:fiberTracking_:callstack","This function should only be called from dtiTractography");
+        mexErrMsgIdAndTxt("MyToolbox:fiberTracking_:callstack","This function should only be called from dti2tractography");
+    else if( strcmp(callerFunc,"dti2tractography") )
+        mexErrMsgIdAndTxt("MyToolbox:fiberTracking_:callstack","This function should only be called from dti2tractography");
     //===========================  fastSweepingStep  ========================================
     if(nrhs!=11)
         mexErrMsgIdAndTxt("MyToolbox:fiberTracking_:nrhs","Exactly 11 input arguments are required");

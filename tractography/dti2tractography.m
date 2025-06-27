@@ -1,5 +1,5 @@
-function [paths,pvals,stopconds] = dtiTractography( dti, seeds, varargin )
-% function [paths,pvals,stopconds] = dtiTractography( dti, seeds, ...
+function [paths,pvals,stopconds] = dti2tractography( dti, seeds, varargin )
+% function [paths,pvals,stopconds] = dti2tractography( dti, seeds, ...
 %                               'option1', value1, 'option2', value2, ... )
 %
 % Computes standard DTI-based tractography by integrating the vector field
@@ -115,7 +115,7 @@ opt.ijk2xyz = eye(4);      optchk.ijk2xyz = [true,true];
 opt.step = 0.5;            optchk.step = [true,true];
 opt.Mlength = 800;         optchk.Mlength = [true,true];
 opt.mcurv = 0.8;           optchk.mcurv = [true,true];
-opt.prune = [3,4,8];       optchk.prune = [true,false]; % Variable size
+opt.prune = [3,4,6];       optchk.prune = [true,false]; % Variable size
 opt.maxthreads = 1e6;      optchk.maxthreads = [true,true];
 % -------------------------------------------------------------------------
 opt = custom_parse_inputs(opt,optchk,varargin{:});
