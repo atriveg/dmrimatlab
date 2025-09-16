@@ -9,7 +9,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/sphericalHarmonics.h"
 #include "../mathsmex/matrixCalculus.h"
@@ -112,7 +112,7 @@ THFCNRET hot2sh_process_fcn( void* inargs )
     // peformance. In non-POSIX systems, however, we don't
     // externally create threads and we can let Open MP do its
     // stuff.
-    unsigned int blas_threads = blas_num_threads(1);
+    unsigned int blas_threads = blas_num_threads_thread(1);
     
     // ---------------------------------------------------------------
     // Loop through the voxels
@@ -135,7 +135,7 @@ THFCNRET hot2sh_process_fcn( void* inargs )
     }
     while( start < N );
 
-    blas_num_threads(blas_threads);
+    blas_num_threads_thread(blas_threads);
     
     delete[] in;
     delete[] out;

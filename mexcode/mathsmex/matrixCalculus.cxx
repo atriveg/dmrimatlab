@@ -19,7 +19,7 @@ namespace mataux
         for( unsigned long pos=0; pos<M*N; ++pos )
             in[pos] = value;
     }
-    
+
     /** Perform element-wise operation of each element with a scalar
      * NOTE: This is done IN PLACE!
      */
@@ -30,8 +30,8 @@ namespace mataux
         const ElementType op,
         const ScalarOperatorType type )
     {
-        ptrdiff_t N_ = M*N;
-        ptrdiff_t inc_ = 1;
+        BLAS_INT N_ = M*N;
+        BLAS_INT inc_ = 1;
         ElementType op_ = op;
         switch(type){
             case ADD:
@@ -43,18 +43,34 @@ namespace mataux
             case DIVIDE:
                 //for( unsigned long pos=0; pos<M*N; ++pos ){ in[pos]/=op_; }
                 op_ = 1.0f/op_;
-                dscal( &N_, &op_, in, &inc_ );
+#ifdef _NO_BLAS_CALLS
+                for( unsigned long pos=0; pos<M*N; ++pos ){ in[pos]*=op_; }
+#else
+#ifdef OCTAVE_BUILD
+                BLASCALLFCN(dscal)( N_, op_, in, inc_ );
+#else
+                BLASCALLFCN(dscal)( &N_, &op_, in, &inc_ );
+#endif
+#endif
                 break;
             case MULTIPLY:
                 //for( unsigned long pos=0; pos<M*N; ++pos ){ in[pos]*=op_; }
-                dscal( &N_, &op_, in, &inc_ );
+#ifdef _NO_BLAS_CALLS
+                for( unsigned long pos=0; pos<M*N; ++pos ){ in[pos]*=op_; }
+#else
+#ifdef OCTAVE_BUILD
+                BLASCALLFCN(dscal)( N_, op_, in, inc_ );
+#else
+                BLASCALLFCN(dscal)( &N_, &op_, in, &inc_ );
+#endif
+#endif
                 break;
         }
     }
-    
+
     /** Compute the product of two mxArrays representing double matrixes and return the result
         as another mxArray (MxN)*(NxP) = (MxP) */
-    void multiplyMxArrays( 
+    void multiplyMxArrays(
         const BufferType in1,
         const BufferType in2,
         BufferType out,
@@ -68,21 +84,42 @@ namespace mataux
         /*
         unsigned long pos = 0;
         for(unsigned long p=0; p<P; ++p ){
+           for(unsigned long m=0; m<M; ++m, ++pos ){
+               out[pos] = 0;
+               for( unsigned long n=0; n<N; ++n )
+                   out[pos] += in1[M*n+m]*in2[N*p+n];
+           }
+        }
+        */
+        // may be one order of magnitude slower than calling
+        // BLAS' dgemm
+#ifdef _NO_BLAS_CALLS
+        unsigned long pos = 0;
+        for(unsigned long p=0; p<P; ++p ){
             for(unsigned long m=0; m<M; ++m, ++pos ){
                 out[pos] = 0;
                 for( unsigned long n=0; n<N; ++n )
                     out[pos] += in1[M*n+m]*in2[N*p+n];
             }
         }
-        */
-        // may be one order of magnitude slower than calling
-        // BLAS' dgemm
-        ptrdiff_t M_ = (ptrdiff_t)M;
-        ptrdiff_t N_ = (ptrdiff_t)N;
-        ptrdiff_t P_ = (ptrdiff_t)P;
+#else
+        BLAS_INT M_ = (BLAS_INT)M;
+        BLAS_INT N_ = (BLAS_INT)N;
+        BLAS_INT P_ = (BLAS_INT)P;
         ElementType alpha = 1.0f;
-        ElementType beta = 0.0f;
-        dgemm(
+        ElementType beta  = 0.0f;
+#ifdef OCTAVE_BUILD
+        BLASCALLFCN(dgemm)(
+            CblasColMajor, CblasNoTrans, CblasNoTrans,
+            M_, P_, N_,
+            alpha,
+            in1, M_,
+            in2, N_,
+            beta,
+            out, M_
+        );
+#else
+        BLASCALLFCN(dgemm)(
             "N",    // First matrix is not transposed
             "N",    // Second matrix is not transposed
             &M_,    // First matrix (not transposed) has M rows
@@ -97,6 +134,8 @@ namespace mataux
             out,    // The output matrix
             &M_     // Leading dimension of the output matrix
         );
+#endif
+#endif
     }
 
     /** Compute the product of two mxArrays representing double matrixes (with the
@@ -130,14 +169,36 @@ namespace mataux
         */
         // may be one order of magnitude slower than calling
         // BLAS' dgemm
-        ptrdiff_t M_ = (ptrdiff_t)M;
-        ptrdiff_t N_ = (ptrdiff_t)N;
-        ptrdiff_t P_ = (ptrdiff_t)P;
+#ifdef _NO_BLAS_CALLS
+        unsigned long pos = 0;
+        for(unsigned long p=0; p<P; ++p ){
+            for(unsigned long m=0; m<M; ++m, ++pos ){
+                out[pos] = 0;
+                for( unsigned long n=0; n<N; ++n )
+                    out[pos] += in1[M*n+m]*in2[N*n+p];
+            }
+        }
+#else
+        BLAS_INT M_ = (BLAS_INT)M;
+        BLAS_INT N_ = (BLAS_INT)N;
+        BLAS_INT P_ = (BLAS_INT)P;
         ElementType alpha = 1.0f;
         ElementType beta  = 0.0f;
-        dgemm(
+
+#ifdef OCTAVE_BUILD
+        BLASCALLFCN(dgemm)(
+            CblasColMajor, CblasNoTrans, CblasTrans,
+            M_, P_, N_,
+            alpha,
+            in1, M_,
+            in2, N_,
+            beta,
+            out, M_
+        );
+#else
+        BLASCALLFCN(dgemm)(
             "N",    // First matrix is not transposed
-            "T",    // Second matrix IS transposed
+            "T",    // Second matrix is transposed
             &M_,    // First matrix (not transposed) has M rows
             &P_,    // Second matrix (not transposed) has P columns
             &N_,    // First matrix (not transoposed) has N columns
@@ -145,11 +206,13 @@ namespace mataux
             in1,    // First matrix
             &M_,    // Leading dimension of the first matrix
             in2,    // Second matrix
-            &P_,    // Leading dimension of the second matrix
+            &N_,    // Leading dimension of the second matrix
             &beta,  // Scale applied to the output (not used)
             out,    // The output matrix
             &M_     // Leading dimension of the output matrix
         );
+#endif
+#endif
     }
     
     /** Given a matrix A with size MxN, compute A^T*A with size NxN */
@@ -175,11 +238,32 @@ namespace mataux
         */
         // may be one order of magnitude slower than calling
         // BLAS' dsyrk
-        ptrdiff_t M_ = (ptrdiff_t)M;
-        ptrdiff_t N_ = (ptrdiff_t)N;
+#ifdef _NO_BLAS_CALLS
+        for( IndexType nr=0; nr<(IndexType)N; ++nr ){
+            for( IndexType nc=nr; nc<(IndexType)N; ++nc ){
+                out[N*nr+nc] = 0.0;
+                for( IndexType p=0; p<(IndexType)M; ++p )
+                    out[N*nr+nc] += (in[M*nc+p]) * (in[M*nr+p]);
+                out[N*nc+nr] = out[N*nr+nc];
+            }
+        }
+#else
+        BLAS_INT M_ = (ptrdiff_t)M;
+        BLAS_INT N_ = (ptrdiff_t)N;
         ElementType alpha = 1.0f;
         ElementType beta  = 0.0f;
-        dsyrk(
+
+#ifdef OCTAVE_BUILD
+        BLASCALLFCN(dsyrk)(
+            CblasColMajor, CblasUpper, CblasTrans,
+            N_, M_,
+            alpha,
+            in, M_,
+            beta,
+            out, N_
+        );
+#else
+        BLASCALLFCN(dsyrk)(
             "U",    // Upper part computed
             "T",    // Compute in^T*in instead of in*in^T
             &N_,    // The size of the output matrix
@@ -191,6 +275,8 @@ namespace mataux
             out,    // Output matrix
             &N_     // Leading dimension of the output
         );
+#endif
+#endif
         // This is a generic function, and we don't know if the
         // lower part of out will be further used. Hence, we must
         // fill it just in case (dsyrk won't do it for us)
@@ -213,7 +299,7 @@ namespace mataux
         for(unsigned long pos=0; pos<M*N; ++pos )
             out[pos] = in1[pos]+in2[pos];
     }
-    
+
     /** Compute the subtraction of two mxArrays representing double matrixes and return the result
         as another mxArray (MxN)-(MxN) = (MxN) */
     void subtractMxArrays(
@@ -266,25 +352,33 @@ namespace mataux
         BufferType work
     )
     {
-        IndexType info;
+        BLAS_INT info;
         ElementType anorm;
         ElementType rcond;
-        ptrdiff_t MM = (ptrdiff_t)M;
-        /** First, compute the norm of the input matrix */
-        anorm = dlange( "1", &MM, &MM, in, &MM, work ); // in remains untouched
-        /** Second, compute L-U factorization using dgetrf */
-        dgetrf( &MM, &MM, in, &MM, pivot1, &info ); // in is modified here!!!
+        BLAS_INT MM = (BLAS_INT)M;
+        // First, compute the norm of the input matrix
+        anorm = LAPACKCALLFCN(dlange)( "1", &MM, &MM, in, &MM, work
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                                        , 1
+#endif
+        ); // in remains untouched
+        // Second, compute L-U factorization using dgetrf
+        LAPACKCALLFCN(dgetrf)( &MM, &MM, in, &MM, (BLAS_INT*)pivot1, &info ); // in is modified here!!!
         if(info!=0)
             return (IndexType)(-1);
-        /** Third, estimate the reciprocal condition number */
-        dgecon( "1", &MM, in, &MM, &anorm, &rcond, work, pivot2, &info ); // in remains untouched
+        //Third, estimate the reciprocal condition number
+        LAPACKCALLFCN(dgecon)( "1", &MM, in, &MM, &anorm, &rcond, work, (BLAS_INT*)pivot2, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                                , 1
+#endif
+        ); // in remains untouched
         if(info!=0)
             return (IndexType)(-2);
         if( rcond<rcnth )
             return (IndexType)(-3);
-        /** Finally, invert the matrix */
-        ptrdiff_t llwork = (ptrdiff_t)lwork;
-        dgetri( &MM, in, &MM, pivot1, work, &llwork, &info );
+        // Finally, invert the matrix
+        BLAS_INT llwork = (BLAS_INT)lwork;
+        LAPACKCALLFCN(dgetri)( &MM, in, &MM, (BLAS_INT*)pivot1, work, &llwork, &info );
         if(info!=0)
             return (IndexType)(-4);
         return 0;
@@ -313,27 +407,44 @@ namespace mataux
         BufferType work
     )
     {
-        IndexType info;
+        BLAS_INT info;
         ElementType anorm;
         ElementType rcond;
-        ptrdiff_t MM = (ptrdiff_t)M;
-        ptrdiff_t llwork = (ptrdiff_t)lwork;
-        /** First, compute the norm of the input matrix */
-        anorm = dlansy( "1", "U", &MM, in, &MM, work ); // in remains untouched
-        /** Second, compute L-U factorization using dsytrf */
-        dsytrf( "U", &MM, in, &MM, pivot1, 
-                work, &llwork, &info ); // in is modified here!!!
+        BLAS_INT MM = (BLAS_INT)M;
+        BLAS_INT llwork = (BLAS_INT)lwork;
+        // First, compute the norm of the input matrix
+        anorm = LAPACKCALLFCN(dlansy)( "1", "U", &MM, in, &MM, work
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                                       , 1, 1
+#endif
+        ); // in remains untouched
+        // Second, compute L-U factorization using dsytrf
+        LAPACKCALLFCN(dsytrf)( "U", &MM, in, &MM, (BLAS_INT*)pivot1,
+                work, &llwork, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                , 1
+#endif
+        ); // in is modified here!!!
         if(info!=0)
             return (IndexType)(-1);
-        /** Third, estimate the reciprocal condition number */
-        dsycon( "U", &MM, in, &MM, pivot1,
-                &anorm, &rcond, work, pivot2, &info ); // in remains untouched
+        // Third, estimate the reciprocal condition number
+        LAPACKCALLFCN(dsycon)( "U", &MM, in, &MM, (BLAS_INT*)pivot1,
+                &anorm, &rcond, work, (BLAS_INT*)pivot2, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                , 1
+#endif
+        ); // in remains untouched
         if(info!=0)
             return (IndexType)(-2);
         if( rcond<rcnth )
             return (IndexType)(-3);
-        /** Finally, invert the matrix */
-        dsytri( "U", &MM, in, &MM, pivot1, work, &info );
+        // Finally, invert the matrix
+        LAPACKCALLFCN(dsytri)( "U", &MM, in, &MM,
+                               (BLAS_INT*)pivot1, work, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                               , 1
+#endif
+        );
         if(info!=0)
             return (IndexType)(-4);
         // This is a generic function, and we don't know if the
@@ -369,26 +480,42 @@ namespace mataux
         BufferType work
     )
     {
-        IndexType info;
+        BLAS_INT info;
         ElementType anorm;
         ElementType rcond;
-        ptrdiff_t MM = (ptrdiff_t)M;
-        ptrdiff_t llwork = (ptrdiff_t)lwork;
-        /** First, compute the norm of the input matrix */
-        anorm = dlansy( "1", "U", &MM, in, &MM, work ); // in remains untouched
-        /** Second, compute Cholesky's factorization using dpotrf */
-        dpotrf( "U", &MM, in, &MM, &info ); // in is modified here!!!
+        BLAS_INT MM = (BLAS_INT)M;
+        BLAS_INT llwork = (BLAS_INT)lwork;
+        // First, compute the norm of the input matrix
+        anorm = LAPACKCALLFCN(dlansy)( "1", "U", &MM, in, &MM, work
+#ifdef LAPACK_FORTRAN_STRLEN_END
+        , 1, 1
+#endif
+        ); // in remains untouched
+        // Second, compute Cholesky's factorization using dpotrf
+        LAPACKCALLFCN(dpotrf)( "U", &MM, in, &MM, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+        , 1
+#endif
+        ); // in is modified here!!!
         if(info!=0) // Meaning: the matrix is not P.D.
             return (IndexType)(-1);
-        /** Third, estimate the reciprocal condition number */
-        dpocon( "U", &MM, in, &MM,
-                &anorm, &rcond, work, pivot2, &info ); // in remains untouched
+        // Third, estimate the reciprocal condition number
+        LAPACKCALLFCN(dpocon)( "U", &MM, in, &MM,
+                &anorm, &rcond, work, (BLAS_INT*)pivot2, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                , 1
+#endif
+        ); // in remains untouched
         if(info!=0)
             return (IndexType)(-2);
         if( rcond<rcnth )
             return (IndexType)(-3);
-        /** Finally, invert the matrix */
-        dpotri( "U", &MM, in, &MM, &info );
+        // Finally, invert the matrix
+        LAPACKCALLFCN(dpotri)( "U", &MM, in, &MM, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+        , 1
+#endif
+        );
         if(info!=0)
             return (IndexType)(-4);
         // This is a generic function, and we don't know if the
@@ -400,7 +527,8 @@ namespace mataux
         }
         return 0;
     }
-    
+
+
     /** Matrix division A\B, i.e. A^(-1)B
      * A (in1) has size M x M
      * B (in2) has size M x N
@@ -416,17 +544,17 @@ namespace mataux
         const SizeType N )
     {
         // -----------
-        IndexType* iPivot = new IndexType[M];
+        BLAS_INT* iPivot = new BLAS_INT[M];
         // -----------
         BufferType bwork = new ElementType[M*M];
         memcpy( bwork, in1, M*M*sizeof(ElementType) );
         memcpy( out,   in2, M*N*sizeof(ElementType) );
         // -----------
-        IndexType info;
+        BLAS_INT info;
         // -----------
-        ptrdiff_t MM = (ptrdiff_t)M;
-        ptrdiff_t NN = (ptrdiff_t)N;
-        dgesv( &MM, &NN, bwork, &MM, iPivot, out, &MM, &info );
+        BLAS_INT MM = (BLAS_INT)M;
+        BLAS_INT NN = (BLAS_INT)N;
+        LAPACKCALLFCN(dgesv)( &MM, &NN, bwork, &MM, iPivot, out, &MM, &info );
         // -----------
         delete[] bwork;
         delete[] iPivot;
@@ -445,14 +573,33 @@ namespace mataux
         return sum;
     }
     
+    /** Compute the norm of an N-D mxArray */
+    ElementType normMxNDArray(
+        const BufferType in,
+        const SizeType M )
+    {
+        double norm = 0.0f;
+#ifdef _NO_BLAS_CALLS
+         for( SizeType m=0; m<M; ++m )
+            norm += (double)(in[m]) * (double)(in[m]);
+#else
+        BLAS_INT M_    = (BLAS_INT)M;
+        BLAS_INT unit_ = 1;
+#ifdef OCTAVE_BUILD
+        norm = BLASCALLFCN(ddot)( M_, in, unit_, in, unit_ );
+#else
+        norm = BLASCALLFCN(ddot)( &M_, in, &unit_, in, &unit_ );
+#endif
+#endif
+        return norm;
+    }
+
     /** Compute RMS value of an N-D mxArray */
     ElementType rmsMxNDArray(
         const BufferType in,
         const SizeType M )
     {
-        double rms = 0.0f;
-        for( SizeType m=0; m<M; ++m )
-            rms += (double)(in[m]) * (double)(in[m]);
+        double rms = normMxNDArray( in, M );
         return sqrt(rms);
     }
     

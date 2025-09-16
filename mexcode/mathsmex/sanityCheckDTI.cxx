@@ -14,10 +14,14 @@ namespace dtisc{
 void sanityCheckDTI( double* dti, double* eigval, double* eigvec, const double& ADC0, const char order )
 {
     // Use Lapack's dspev:
-    const ptrdiff_t dim = 3;
-    ptrdiff_t info = 0;
+    const BLAS_INT dim = 3;
+    BLAS_INT info = 0;
     double work[9];
-    dspev( "V", "L", &dim, dti, eigval, eigvec, &dim, work, &info );
+    LAPACKCALLFCN(dspev)( "V", "L", &dim, dti, eigval, eigvec, &dim, work, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                          , 1, 1
+#endif
+    );
     if(info!=0){
         // Computation failed for some reason. Fill eigenvalues with
         // free-water value:

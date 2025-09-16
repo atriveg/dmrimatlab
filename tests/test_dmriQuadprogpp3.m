@@ -1,3 +1,8 @@
+sf = check_software_platform;
+if(sf==2)
+    pkg load optim;
+end
+
 N = 11;
 a = (0:N-1)/N*2*pi+0.13;
 x = [-1,4];
@@ -33,7 +38,12 @@ plot(x,(b-B(1)*x)/B(2),'k--');
 Q = [2,4;4,10];
 f = [-6;-12];
 
-x = quadprog(Q,f,A,a,B,b,lb,ub,[],optimoptions(@quadprog,'Display','none'));
+if(sf==1)
+    x = quadprog(Q,f,A,a,B,b,lb,ub,[],optimoptions(@quadprog,'Display','none'));
+else
+    x = quadprog(Q,f,A,a,B,b,lb,ub,[]);
+end
+
 plot(x(1),x(2),'ro');
 
 x2 = -Q\f;

@@ -74,6 +74,12 @@ else % Multi-shell
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if(opt.plot)
+    [sf,sfname,vs] = check_software_platform;
+    if(sf==1)
+        ltmode = 'phong';
+    else
+        ltmode = 'gouraud';
+    end
     polyhedron = createIcosahedron;
     for n=1:3
         polyhedron = refinePolyhedron(polyhedron);
@@ -86,7 +92,7 @@ if(opt.plot)
         'Faces', polyhedron.facets, 'FaceColor', [0.2,0.2,0.4], ...
         'FaceAlpha', 0.9, 'EdgeAlpha', 0 );
     light;
-    lighting('phong');
+    lighting(ltmode);
     axis('equal');
     axis('off');
     title('All shells','FontSize',32);
@@ -96,7 +102,7 @@ if(opt.plot)
         'Faces', polyhedron.facets, 'FaceColor', [0.2,0.2,0.4], ...
         'FaceAlpha', 0.9, 'EdgeAlpha', 0 );
     light;
-    lighting('phong');
+    lighting(ltmode);
     axis('equal');
     axis('off');
     title('Current shell','FontSize',32);

@@ -35,7 +35,7 @@ namespace posODFs
         delete[] m2;
         delete[] m3;
     }
-    
+
     void destroyWignerSymbols( WignerSymbols* wigner )
     {
         delete[] wigner->xi;
@@ -44,7 +44,7 @@ namespace posODFs
         delete[] wigner->k3;
         delete[] wigner->l3;
     }
-    
+
     void createVoxelFeatures( VoxelFeatures* voxel, const SizeType N, const SizeType M, const unsigned int L )
     {
         unsigned int K = (L+1)*(L+2)/2;
@@ -54,7 +54,7 @@ namespace posODFs
         voxel->psi = new ElementType[K];
         voxel->mu = 0.0;
     }
-    
+
     void destroyVoxelFeatures( VoxelFeatures* voxel )
     {
         delete[] voxel->E;
@@ -62,20 +62,20 @@ namespace posODFs
         delete[] voxel->pshell;
         delete[] voxel->psi;
     }
-    
+
     void createGradientInputs( GradientInputs* ginputs, const SizeType N, const unsigned int L )
     {
         unsigned int Kp = (2*L+1)*(2*L+2)/2;
         ginputs->delta = new ElementType[N];
         ginputs->Delta = new ElementType[Kp];
     }
-    
+
     void destroyGradientInputs( GradientInputs* ginputs )
     {
         delete[] ginputs->delta;
         delete[] ginputs->Delta;
     }
-    
+
     void createHessianInputs( HessianInputs* hinputs, const SizeType N, const unsigned int L )
     {
         unsigned int K = (L+1)*(L+2)/2;
@@ -83,17 +83,17 @@ namespace posODFs
         hinputs->deltap = new ElementType[N*(SizeType)K];
         hinputs->Deltap = new ElementType[(SizeType)Kp*(SizeType)K];
     }
-    
+
     void destroyHessianInputs( HessianInputs* hinputs )
     {
         delete[] hinputs->deltap;
         delete[] hinputs->Deltap;
     }
-    
+
     void createNRWorkBuffers( NRWorkBuffers* nrwork, const SizeType N, const unsigned int L )
     {
         unsigned int K = (L+1)*(L+2)/2;
-        unsigned int Kp = (2*L+1)*(2*L+2)/2;        
+        unsigned int Kp = (2*L+1)*(2*L+2)/2;
         createGradientInputs( &(nrwork->ginputs), N, L );
         createHessianInputs( &(nrwork->hinputs), N, L );
         nrwork->gradient0 = new ElementType[K+1];
@@ -118,14 +118,18 @@ namespace posODFs
         //    + dsytri needs a work buffer >= (K+1)
         // So we will use query search with dsytrf and use the maximum between
         // this value and 3.
-        ptrdiff_t K_ = (ptrdiff_t)(K+1);
-        ptrdiff_t info = 0;
-        ptrdiff_t llwork = -1; // So that query search is performed
+        BLAS_INT K_ = (BLAS_INT)(K+1);
+        BLAS_INT info = 0;
+        BLAS_INT llwork = -1; // So that query search is performed
         ElementType osize = K;
         nrwork->pivot0 = new IndexType[K+1];
         nrwork->pivot1 = new IndexType[K+1];
-        dsytrf( "L", &K_, nrwork->hessian0, &K_, nrwork->pivot0, 
-                &osize, &llwork, &info );
+        LAPACKCALLFCN(dsytrf)( "L", &K_, nrwork->hessian0, &K_, (BLAS_INT*)(nrwork->pivot0),
+                &osize, &llwork, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                , 1
+#endif
+        );
         if(info==0){
             if((SizeType)osize>3)
                 nrwork->lwork = ((SizeType)osize)*((SizeType)(K+1));
@@ -136,7 +140,7 @@ namespace posODFs
             nrwork->lwork = 3*((SizeType)(K+1));
         nrwork->work = new ElementType[nrwork->lwork];
     }
-    
+
     void destroyNRWorkBuffers( NRWorkBuffers* nrwork )
     {
         destroyGradientInputs( &(nrwork->ginputs) );
@@ -151,12 +155,12 @@ namespace posODFs
         delete[] nrwork->pivot0;
         delete[] nrwork->pivot1;
     }
-    
+
     void createLMWorkBuffers( LMWorkBuffers* lmwork, const SizeType N, const unsigned int L )
     {
         unsigned int K = (L+1)*(L+2)/2;
         unsigned int Kp = (2*L+1)*(2*L+2)/2;
-        
+
         lmwork->delta0 = new ElementType[N+(SizeType)Kp];
         lmwork->delta1 = new ElementType[N+(SizeType)Kp];
         lmwork->jacobian = new ElementType[ (N+(SizeType)Kp)*(SizeType)((int)K-1) ];
@@ -178,7 +182,7 @@ namespace posODFs
         lmwork->pivot0 = new IndexType[((int)K-1)];
         lmwork->pivot1 = new IndexType[((int)K-1)];
     }
-    
+
     void destroyLMWorkBuffers( LMWorkBuffers* lmwork )
     {
         delete[] lmwork->delta0;
@@ -193,7 +197,7 @@ namespace posODFs
         delete[] lmwork->pivot0;
         delete[] lmwork->pivot1;
     }
-    
+
     /**
      * The next three functions are intended to solve a generic nonlinear minimization
      * problem with an equality constraint: i.e. the function to minimize is the
@@ -236,7 +240,7 @@ namespace posODFs
             *lagrangian += (voxel->mu) * (voxel->psi[k1]) * (voxel->psi[k1]);
         return;
     }
-    
+
     void ComputeGradient(
         const ProblemFeatures* features,
         const WignerSymbols* wigner,
@@ -254,7 +258,7 @@ namespace posODFs
         for( IndexType p=0; p<(IndexType)(wigner->P); ++p ){
             for( IndexType n=0; n<(IndexType)(features->N); ++n ){
                 ElementType tmp = -2 * (voxel->lambda[(voxel->pshell[n])*(IndexType)(features->L+1)+(IndexType)(wigner->l3[p])/2])
-                    * (wigner->xi[p]) * (voxel->psi[wigner->k2[p]]) 
+                    * (wigner->xi[p]) * (voxel->psi[wigner->k2[p]])
                     * (features->Y[(wigner->k3[p])*(features->N)+n]);
                 hinputs->deltap[(wigner->k1[p])*(IndexType)(features->N)+n] += tmp;
                 gradient[wigner->k1[p]] += (ginputs->delta[n])*tmp;
@@ -270,7 +274,7 @@ namespace posODFs
         gradient[K] -= 1;
         return;
     }
-    
+
     void ComputeHessian(
         const ProblemFeatures* features,
         const WignerSymbols* wigner,
@@ -308,7 +312,7 @@ namespace posODFs
         }
         return;
     }
-    
+
     /**
      * Fit a positive ODF using Newton-Raphson's approach. The initial guess is passed
      * in voxel->psi, and the final outcome should be retrieved from this same buffer
@@ -420,13 +424,13 @@ namespace posODFs
         else
             return -1;
     }
-    
+
     /**
      * The next two functions are intended for a different approach: the size
      * of the problem is reduced in one variable by writing the first component
      * of the vector of unknowns (psi_0) as psi_0=sqrt(1 - sum_k psi_k^2).
      * This way, the problem turns out to be an unconstrained least
-     * squares one, for which Levenberg-Marquardt's method should be 
+     * squares one, for which Levenberg-Marquardt's method should be
      * efficient.
      * The first function computes the residual for this method.
      * The second one computes the Jacobian matrix used in this method.
@@ -436,14 +440,14 @@ namespace posODFs
      * Since we have K-1 = (L+1)(L+2)/2-1 variables, the Jacobian has
      * K-1 columns.
      * Hence, the amount of memory to be externally allocated becomes:
-     * 
+     *
      *    cost: 1 * sizeof(ElementType)
      *    jacobian: ( features->N + Kp )
      *              * ( K - 1 )
      *              * sizeof(ElementType)
      *    delta: ( features->N + Kp )
      *              * sizeof(ElementType)
-     * 
+     *
      * (the second one is a either the vector of residuals, when computing
      * the cost, or a temporary buffer used to store the derivatives
      * of each term of the sum of squares w.r.t. psi_0, when computing the
@@ -474,7 +478,7 @@ namespace posODFs
             for( IndexType n=0; n<(IndexType)(features->N); ++n ){
                 delta[n] -= (voxel->lambda[(voxel->pshell[n])*(IndexType)(features->L+1)+(IndexType)(wigner->l3[p])/2])
                     * (wigner->xi[p]) * psik1 * psik2
-                    * (features->Y[(wigner->k3[p])*(features->N)+n]); 
+                    * (features->Y[(wigner->k3[p])*(features->N)+n]);
             }
             delta[ (IndexType)(features->N) + wigner->k3[p] ] -=
                 ::sqrt(features->nu) * (wigner->l3[p]) * (wigner->l3[p]+1)
@@ -485,7 +489,7 @@ namespace posODFs
         *cost /= 2;
         return;
     }
-    
+
     void ComputeJacobian(
         const ProblemFeatures* features,
         const WignerSymbols* wigner,
@@ -541,7 +545,7 @@ namespace posODFs
         }
         return;
     }
-    
+
     /**
      * Fit a positive ODF using Levenberg-Marquardt's approach. The initial guess is passed
      * in voxel->psi, and the final outcome should be retrieved from this same buffer
@@ -612,7 +616,7 @@ namespace posODFs
             }
             // If we reach here, the pseudo-Hessian was successfully inverted and we can multiply to get the new step:
             mataux::multiplyMxArrays( work->hessian1, work->gradient, work->x1, K-1, K-1, 1 );
-            // The next step is Levenberg-Marquardt's update. 
+            // The next step is Levenberg-Marquardt's update.
             ElementType norm = 0.0;
             for( IndexType r=0; r<(IndexType)(K-1); ++r ){
                 work->x1[r] += work->x0[r];
@@ -667,8 +671,8 @@ namespace posODFs
             // may be decreased to take larger steps:
             rho /= 2.0;
             fails = 0;
-            // We have updated the estimate, so it is necessary to re-compute 
-            // the jacobian for a new guess 
+            // We have updated the estimate, so it is necessary to re-compute
+            // the jacobian for a new guess
             computeDers = true;
         }
         // The output of the algorithm must be taken from voxel->psi, which
@@ -689,7 +693,7 @@ namespace posODFs
             return t;
         else
             return -1;
-    }    
+    }
 } // end namespace posODFs
 
 #endif // #ifndef _posODFsMaths_cxx

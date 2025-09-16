@@ -1,10 +1,17 @@
+function test_mapl2samples
+
+sf = check_software_platform;
+if(sf==2)
+    pkg load statistics;
+end
+
 %%% test_mapl2samples.m
 clc;
 clear;
 close('all');
 N  = 1e6;
 n_th = 100;
-Nmax = 8;
+Nmax = 6;
 tau = 40e-3;
 [atti,gi,bi] = generate_atti_signal;
 atti = reshape( atti, [1,1,1,size(atti,1)] );
@@ -42,6 +49,7 @@ hz   = rz(2)-rz(1);
 ri   = sqrt( rxg(:).*rxg(:) + ryg(:).*ryg(:) + rzg(:).*rzg(:) );
 ui   = [rxg(:),ryg(:),rzg(:)]./ri;
 ui(ri<10*eps,:) = [1,0,0];
+tic;
 eap_th = mapl2eap( ...
     reshape( mapl, [1,1,1,numel(mapl)] ), ...
     reshape(dti,[1,1,1,6]), ...
@@ -50,6 +58,8 @@ eap_th = mapl2eap( ...
     'tau', tau, ...
     'ADC0', 3.0e-3   );
 eap_th = reshape(eap_th,[NG,NG,NG]);
+T = toc;
+fprintf(1,'It took %1.5f seconds to render the EAP\n',T);
 
 f_X = sum(sum(eap_th,1),3)*hy*hz;
 f_Y = sum(sum(eap_th,2),3)*hx*hz;
@@ -82,7 +92,7 @@ hp = [];
 % -------------
 figure(hf);
 ha = subplot(1,3,1); hold('on'); grid('on');
-hp(1) = histogram(rsx,'Normalization','pdf','DisplayStyle','stairs','EdgeColor',[.5,.0,.0],'LineWidth',2);
+hp(1) = histogram(rsx,40,'Normalization','pdf','DisplayStyle','stairs','EdgeColor',[.5,.0,.0],'LineWidth',2);
 hp(2) = plot(rx,f_X,'LineStyle','--','LineWidth',2,'Color',[.0,.5,.0]);
 legend(hp,'Histogram of data','Target PDF','Location','NorthWest','FontSize',16); legend('boxoff');
 xlabel('x [mm]','FontSize',18);
@@ -93,7 +103,7 @@ drawnow;
 % -------------
 figure(hf);
 ha = subplot(1,3,2); hold('on'); grid('on');
-hp(1) = histogram(rsy,'Normalization','pdf','DisplayStyle','stairs','EdgeColor',[.5,.0,.0],'LineWidth',2);
+hp(1) = histogram(rsy,40,'Normalization','pdf','DisplayStyle','stairs','EdgeColor',[.5,.0,.0],'LineWidth',2);
 hp(2) = plot(ry,f_Y,'LineStyle','--','LineWidth',2,'Color',[.0,.5,.0]);
 legend(hp,'Histogram of data','Target PDF','Location','NorthWest','FontSize',16); legend('boxoff');
 xlabel('y [mm]','FontSize',18);
@@ -104,7 +114,7 @@ drawnow;
 % -------------
 figure(hf);
 ha = subplot(1,3,3); hold('on'); grid('on');
-hp(1) = histogram(rsz,'Normalization','pdf','DisplayStyle','stairs','EdgeColor',[.5,.0,.0],'LineWidth',2);
+hp(1) = histogram(rsz,40,'Normalization','pdf','DisplayStyle','stairs','EdgeColor',[.5,.0,.0],'LineWidth',2);
 hp(2) = plot(rz,f_Z,'LineStyle','--','LineWidth',2,'Color',[.0,.5,.0]);
 legend(hp,'Histogram of data','Target PDF','Location','NorthWest','FontSize',16); legend('boxoff');
 xlabel('z [mm]','FontSize',18);
@@ -126,11 +136,11 @@ hf = figure(4004);
 figure(hf);
 ha = subplot(1,3,1); hold('on'); grid('on'); rotate3d('on');
 hs = surf(rx,ry,f_XY,ones(size(f_XY)),'EdgeColor','none','FaceAlpha',0.5);
-hs.FaceColor = 'flat';
-hs.CDataMode = 'manual';
-hs.CData     = ones(size(f_XY));
+set(hs,'FaceColor','flat');
+%set(hs,'CDataMode','manual');
+set(hs,'CData',ones(size(f_XY)));
 colormap([.5,.0,.0]);
-histogram2(rsx,rsy,'Normalization','pdf');
+histogram2(rsx,rsy,40,'Normalization','pdf');
 xlabel('x [mm]','FontSize',18);
 ylabel('y [mm]','FontSize',18);
 zlabel('f_{XY}(x,y) [mm^{-2}]','FontSize',18);
@@ -141,11 +151,11 @@ drawnow;
 figure(hf);
 ha = subplot(1,3,2); hold('on'); grid('on'); rotate3d('on');
 hs = surf(rx,rz,f_XZ,ones(size(f_XZ)),'EdgeColor','none','FaceAlpha',0.5);
-hs.FaceColor = 'flat';
-hs.CDataMode = 'manual';
-hs.CData     = ones(size(f_XZ));
+set(hs,'FaceColor','flat');
+%set(hs,'CDataMode','manual');
+set(hs,'CData',ones(size(f_XZ)));
 colormap([.5,.0,.0]);
-histogram2(rsx,rsz,'Normalization','pdf');
+histogram2(rsx,rsz,40,'Normalization','pdf');
 xlabel('x [mm]','FontSize',18);
 ylabel('z [mm]','FontSize',18);
 zlabel('f_{XZ}(x,z) [mm^{-2}]','FontSize',18);
@@ -156,11 +166,11 @@ drawnow;
 figure(hf);
 ha = subplot(1,3,3); hold('on'); grid('on'); rotate3d('on');
 hs = surf(ry,rz,f_YZ,ones(size(f_YZ)),'EdgeColor','none','FaceAlpha',0.5);
-hs.FaceColor = 'flat';
-hs.CDataMode = 'manual';
-hs.CData     = ones(size(f_YZ));
+set(hs,'FaceColor','flat');
+%set(hs,'CDataMode','manual');
+set(hs,'CData',ones(size(f_YZ)));
 colormap([.5,.0,.0]);
-histogram2(rsy,rsz,'Normalization','pdf');
+histogram2(rsy,rsz,40,'Normalization','pdf');
 xlabel('y [mm]','FontSize',18);
 ylabel('z [mm]','FontSize',18);
 zlabel('f_{YZ}(y,z) [mm^{-2}]','FontSize',18);
@@ -168,7 +178,7 @@ set(ha,'FontSize',14);
 title('Marginal PDF in coordinates Y and Z [rotate]','FontSize',18);
 drawnow;
 % -------------------------------------------------------------------------
-
+end
 
 
 function [atti,gi,bi] = generate_atti_signal

@@ -1,5 +1,6 @@
 % test_PosODFsGrads.m
 
+function test_PosODFsGrads
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear;
 rng(13061981);
@@ -176,6 +177,7 @@ drawnow;
 % plot(1:REP,resids);
 % xlabel('iters');
 % ylabel('resids');
+end
 
 function [approx,Q] = computeVectorApprox(E,psi,lambda,Y,nu)
 % E:      N x 1

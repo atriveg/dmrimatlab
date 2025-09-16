@@ -10,7 +10,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include <cstring>
 #include <algorithm>
@@ -243,7 +243,7 @@ THFCNRET backtracing_process_fcn( void* inargs )
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
     // peformance.
-    unsigned int blas_threads = blas_num_threads(1);
+    unsigned int blas_threads = blas_num_threads_thread(1);
     // ----
     IndexType start = 0; // First index of data blocks to process
     IndexType end   = 0; // Post-last index of data blocks to process
@@ -286,7 +286,7 @@ THFCNRET backtracing_process_fcn( void* inargs )
     while( start < btargs->getN() );
     // ----
     // Revert BLAS threads usage to its default:
-    blas_num_threads(blas_threads);
+    blas_num_threads_thread(blas_threads);
     // ----
     freeNewPathBuffers( &buffers );
     // ----

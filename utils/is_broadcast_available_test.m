@@ -6,19 +6,25 @@ function brdcst = is_broadcast_available_test
 %   Suggestion: in the very beginning of your function, use:
 %      >> is_broadcast_available = is_broadcast_available_test
 %   within your function to avoid repeated calls to this function.
-global is_broadcast_available_test_var;
+global is_broadcast_available_test_var; %#ok<GVMIS> 
 if(isempty(is_broadcast_available_test_var))
-    % Broadcast is available only from release 2016b
-    vers   = version('-release');
-    versn  = round(str2double(vers(1:4)));
-    versl  = vers(5);
-    is_broadcast_available_test_var = true;
-    if(versn<2016)
-        is_broadcast_available_test_var = false;
-    elseif(versn==2016)
-        if(versl~='b')
+    [sf,~,vs] = check_software_platform;
+    if(sf==1) % This is Matlab
+        % Broadcast is available only from release 2016b aka 9.1
+        if(vs>9.05)
+            is_broadcast_available_test_var = true;
+        else
             is_broadcast_available_test_var = false;
         end
+    elseif(sf==2) % This is Octave
+        % Broadcast is available only from release 3.6.0
+        if(vs>3.59999)
+            is_broadcast_available_test_var = true;
+        else
+            is_broadcast_available_test_var = false;
+        end
+    else % This is unknown
+        error('You''re running dmrimatlab from an unknown software platform');
     end
 end
 brdcst = is_broadcast_available_test_var;

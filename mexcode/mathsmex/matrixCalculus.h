@@ -11,51 +11,103 @@
 #define _matrixCalculus_h_
 
 #include "mexToMathsTypes.h"
-#include "lapack.h"
-#include "blas.h"
+
+#ifdef OCTAVE_BUILD
+
+    #ifdef _SYSTEM_OPENBLAS_BUILD_
+        #include "openblas/cblas.h"
+        #include "openblas/lapacke.h"
+        #ifndef _USE_OPENBLAS_THREAD_CONTROL
+            #define _USE_OPENBLAS_THREAD_CONTROL
+        #endif
+    #else
+        #ifdef _LOCAL_OPENBLAS_BUILD_
+            #include "cblas.h"
+            #include "lapack.h"
+        #else
+            #ifdef _SYSTEM_BLAS_BUILD_
+                #include "cblas.h"
+                #include "lapack.h"
+            #else
+                #error "No BLAS implementation was provided"
+            #endif
+        #endif
+    #endif
+
+    #define BLAS_RASTER CblasColMajor
+
+#else
+
+    #include "blas.h"
+    #include "lapack.h"
+
+#endif
+
 #include <string.h>
+
+#ifdef OCTAVE_BUILD
+    #ifdef _SYSTEM_BLAS_BUILD_
+        typedef CBLAS_INT BLAS_INT;
+        #define LAPACKCALLFCN(FUNC) FUNC##_
+        #define BLASCALLFCN(FUNC) cblas_##FUNC
+    #else
+        typedef blasint BLAS_INT;
+        #define LAPACKCALLFCN(FUNC) FUNC##_
+        #define BLASCALLFCN(FUNC) cblas_##FUNC
+    #endif
+
+#else
+    typedef ptrdiff_t BLAS_INT;
+    #define LAPACKCALLFCN(FUNC) FUNC
+    #define BLASCALLFCN(FUNC) FUNC
+#endif
+
 
 namespace mataux
 {
     typedef enum{ADD,SUBTRACT,MULTIPLY,DIVIDE} ScalarOperatorType;
-    
+
+
     void setValueMxArray( BufferType, const SizeType, const SizeType, const ElementType );
-    
+
     void scalaropMxArray( BufferType, const SizeType, const SizeType, const ElementType, const ScalarOperatorType );
-    
+
     void multiplyMxArrays( const BufferType, const BufferType, BufferType, const SizeType, const SizeType, const SizeType );
 
     void multiplyMxArraysTranspose( const BufferType, const BufferType, BufferType,
                                     const SizeType, const SizeType, const SizeType );
-    
+
     void transposeMultiplyMxArray( const BufferType, BufferType, const SizeType, const SizeType );
-    
+
     void addMxArrays( const BufferType, const BufferType, BufferType, const SizeType, const SizeType );
-    
+
     void subtractMxArrays( const BufferType, const BufferType, BufferType, const SizeType, const SizeType );
-    
+
+
     void transposeMxArray( const BufferType, BufferType, const SizeType, const SizeType );
-    
+
     IndexType checkAndInvertMxArray( BufferType, const SizeType, const ElementType, IndexBuffer, IndexBuffer, SizeType, BufferType );
-    
+
     IndexType checkAndInvertMxSymArray( BufferType, const SizeType, const ElementType, IndexBuffer, IndexBuffer, SizeType, BufferType );
-    
+
     IndexType checkAndInvertMxPosArray( BufferType, const SizeType, const ElementType, IndexBuffer, IndexBuffer, SizeType, BufferType );
-    
+
     IndexType divideMxArrays( const BufferType, const BufferType, BufferType, const SizeType, const SizeType );
-    
+
     ElementType sumMxNDArray( const BufferType, const SizeType );
-    
+
+    ElementType normMxNDArray( const BufferType, const SizeType );
+
     ElementType rmsMxNDArray( const BufferType, const SizeType );
-    
+
     SizeType nonnullsMxNDArray( const BufferType, const SizeType );
-    
+
     bool notNull(const ElementType);
-    
+
     ElementType traceMxArray( const BufferType, const SizeType );
-    
+
     void addIdentityMxArray( BufferType, const ElementType, const SizeType );
-    
+
 } // End namespace mataux
 
 #endif // _matrixCalculus_h_

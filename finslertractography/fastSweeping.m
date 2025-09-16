@@ -140,7 +140,7 @@ dcosts(dcosts<0) = 0.0;
 costs = -ones(fov);
 % Make sure at least one seeding point is present inside the mask:
 seeds = ( opt.mask & (seeds==opt.seedval) );
-assert( any(seeds,'all'), ...
+assert( any(seeds(:)), ...
     'Not a single seeding point found within the masked region' );
 costs(seeds) = 0;
 % -------------------------------------------------------------------------
@@ -184,7 +184,8 @@ for it=1:opt.maxiters
         allvisited = all( costs(opt.mask)>=0 );
     end
     if(allvisited)
-        tcost = sum( costs(opt.mask), 'all' );
+        tcost = costs(opt.mask);
+        tcost = sum( tcost(:) );
         if(~isinf(tcost0))
             ccost = abs(tcost0-tcost);
             if(~isinf(ccost0))
@@ -283,7 +284,12 @@ for n=1:N
     dists(ct) = inf;
     % Sort the distances in ascending order so that the D closest neighbors
     % can be found:
-    [~,ptr] = sort(dists,'ascend','MissingPlacement','last');
+    [sf,sfname,vs] = check_software_platform;
+    if(sf==1)
+        [~,ptr] = sort(dists,'ascend','MissingPlacement','last');
+    else
+        [~,ptr] = sort(dists,'ascend');
+    end
     ptr = ptr(1:D);
     % Create the interpolation matrix:
     intM = allneighs(ptr,:)';

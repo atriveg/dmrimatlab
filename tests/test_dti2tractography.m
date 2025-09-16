@@ -1,3 +1,4 @@
+function test_dti2tractography
 % -------------------------------------------------------------------------
 clear;
 close('all');
@@ -47,7 +48,7 @@ RGB = spectrum2colorcode( u1c, l1c, l2c, l3c );
 close(figure(2));
 figure(2);
 subplot(1,2,1);
-imshow(FA(:,:,round(NK*0.9)),[0,1]); colormap(parula); colorbar; axis('xy');
+imshow(FA(:,:,round(NK*0.9)),[0,1]); colormap; colorbar; axis('xy');
 xlabel('j');
 ylabel('i');
 subplot(1,2,2);
@@ -88,7 +89,7 @@ for n=1:NS
 end
 run_single_test(5,dti,ijk2xyz,seedsi,FA,u2,II,JJ);
 % -------------------------------------------------------------------------
-
+end
 
 % -------------------------------------------------------------------------
 % -------------------------------------------------------------------------
@@ -108,7 +109,7 @@ hold('on');
 H = 10;
 for s=0:H:NK-1
     surf( II, JJ, s*ones(size(II)), FA(:,:,s+1), 'EdgeColor', 'none', ...
-        'FaceAlpha', 0.3 );
+        'FaceAlpha', 0.1 );
 end
 % ------------
 for n = 1:size(seedsi,2)

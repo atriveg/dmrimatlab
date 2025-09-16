@@ -3,6 +3,7 @@
 % Change Lmax to change how far to go (may become slow!)
 % Prints only the number of non-null factors
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function test_mexAllSquaredSHFactors
 clear;
 close('all');
 clc;
@@ -45,6 +46,7 @@ for L=0:2:Lmax
     pad_n_print(msg3{L/2+1},L3);
     pad_n_print(msg4{L/2+1},L4,true);
     fprintf(1,'\n');
+end
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function pad_n_print(msg,L,percent)

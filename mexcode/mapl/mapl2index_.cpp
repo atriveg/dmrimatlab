@@ -10,7 +10,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include <cmath>
 #include <algorithm>
@@ -165,7 +165,7 @@ THFCNRET mapl2index_process_fcn( void* inargs )
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
     // peformance.
-    unsigned int blas_threads = blas_num_threads(1);
+    unsigned int blas_threads = blas_num_threads_thread(1);
     // -----------------------------------------------------------------------------
     // Auxiliary buffers to compute DTI spectrum:
     ElementType dti[6];
@@ -278,7 +278,7 @@ THFCNRET mapl2index_process_fcn( void* inargs )
     while( start < args->getN() );
 
     // Revert BLAS threads usage to its default:
-    blas_num_threads(blas_threads);
+    blas_num_threads_thread(blas_threads);
 
     // Free memory previously allocated
     delete[] Bnnn;
@@ -505,17 +505,21 @@ int polyRoots( const double& a0, const double& a1, const double& a2, double* WR,
     // The eigenvalues of the companion matrix are the roots of the
     // polynomial. We first reduce the matrix to its Hessenberg form:
     double tau[2];
-    ptrdiff_t N = 3;
-    ptrdiff_t O = 1;
-    ptrdiff_t L = 9;
-    ptrdiff_t info = 0;
+    BLAS_INT N = 3;
+    BLAS_INT O = 1;
+    BLAS_INT L = 9;
+    BLAS_INT info = 0;
     double work[9];
-    dgehrd( &N, &O, &N, (double*)companion, &N, 
+    LAPACKCALLFCN(dgehrd)( &N, &O, &N, (double*)companion, &N,
             (double*)tau, (double*)work, &L, &info );
     if(info==0){ // Now we can actually compute the eigenvalues
-        dhseqr( "E", "N", &N, &O, &N, (double*)companion, &N,
+        LAPACKCALLFCN(dhseqr)( "E", "N", &N, &O, &N, (double*)companion, &N,
                 (double*)WR, (double*)WI, (double*)NULL, &N,
-                (double*)work, &L, &info );
+                (double*)work, &L, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                , 1, 1
+#endif
+                );
         if(info!=0)
             return -2;
     }

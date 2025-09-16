@@ -9,10 +9,9 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/sphericalHarmonics.h"
-#include "../mathsmex/matrixCalculus.h"
+//#include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/posODFsMaths.h"
 #include "../mathsmex/mexToMathsTypes.h"
 

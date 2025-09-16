@@ -117,7 +117,7 @@ patch( 'Vertices', vts1, ...
     'FaceAlpha', 0.8, 'EdgeColor', 'none' );
 axis('equal');
 light;
-lighting('phong');
+lighting(phong);
 title(['Estimated prob. :',num2str(P)]);
 % -----------------------
 subplot(1,3,2);
@@ -132,7 +132,7 @@ patch( 'Vertices', vts2, ...
     'FaceAlpha', 0.8, 'EdgeColor', 'none' );
 axis('equal');
 light;
-lighting('phong');
+lighting(phong);
 title(['Estimated prob. :',num2str(P)]);
 % -----------------------
 subplot(1,3,3);
@@ -147,7 +147,7 @@ patch( 'Vertices', vts3, ...
     'FaceAlpha', 0.8, 'EdgeColor', 'none' );
 axis('equal');
 light;
-lighting('phong');
+lighting(phong);
 title(['Estimated prob. :',num2str(P)]);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 lpar  = repmat(lpar,[1,1,3]);     % 3 x 3 x 3
@@ -380,27 +380,3 @@ for n=1:numel(lpar)
         'VerticalAlignment','bottom','HorizontalAlignment','center');
 end
 axis([1,numel(lpar),3e4,16e4]);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

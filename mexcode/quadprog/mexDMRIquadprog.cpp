@@ -192,15 +192,19 @@ void mexFunction( int nlhs, mxArray *plhs[],
 
 int cholesky_invert( double* Q, double* Qi, const unsigned int N )
 {
-    ptrdiff_t nrhs = N;
-    ptrdiff_t NR = N;
-    ptrdiff_t info = 0;
+    BLAS_INT nrhs = N;
+    BLAS_INT NR = N;
+    BLAS_INT info = 0;
     for( unsigned long p=0; p<N*N; ++p )
         Qi[p] = 0.0;
     for( unsigned int n=0; n<N; ++n )
         Qi[n+N*n] = 1.0;
     
-    dposv( "L", &NR, &nrhs, Q, &NR, Qi, &NR, &info );
+    LAPACKCALLFCN(dposv)( "L", &NR, &nrhs, Q, &NR, Qi, &NR, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+    , 1
+#endif
+    );
     
     return (int)info;
 }

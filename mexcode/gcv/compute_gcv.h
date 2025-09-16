@@ -18,6 +18,9 @@ typedef struct GCVParams{
     double lambda0;        // The initial value of the reg. param.
     double lambdastep;     // The reg. param. is updated as lambda <- lambdastep*lambda
     unsigned int maxvals;  // Maximum number of reg. param. values to try
+#ifdef OCTAVE_BUILD
+    BufferType Phi_T;      // This will store Phi transposed
+#endif
     BufferType Pinv0;      // This is an intermediate buffer for the psuedoinverse (previous step)
     BufferType Pinv;       // This is an intermediate buffer for the psuedoinverse (current step)
     BufferType R;          // This is Phi*( Phi'*Phi + lambda*L'*L )^(-1)RR

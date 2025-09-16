@@ -10,7 +10,6 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
 #include "math.h"
 #include <cmath>
 #include "../mathsmex/matrixCalculus.h"
@@ -75,7 +74,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
                   int nrhs, const mxArray *prhs[])
 {
     /** INPUTS (No error checking is performed):
-     * 
+     *
      * prhs[0]:  atti, the attenuation signal to fit, G x N
      * prhs[1]:  dti, the tensor fit of that signal, 6 x N
      * prhs[2]:  gi, the gradients table, G x 3
@@ -104,8 +103,9 @@ void mexFunction( int nlhs, mxArray *plhs[],
      * plhs[4]: resn, the residual in the LS fit, 1 x N
      * plhs[5]: lapln, the (normalized) energy of the Laplacian, 1 x N
      * plhs[6]: lopt, the optimal value of lambda using GCV, 1 x N
-     * 
+     *
      */
+
     //=======================================================================================
     /** Make sure this function is called in a "controlable" way*/
     mxArray* callstack[1];
@@ -228,12 +228,12 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
     ThArgs* args = (ThArgs*)inargs;
     HYDIIOData* io = args->io;
     HYDIParameters* params = args->params;
-        
+
     // Note: this call is crucial so that subsequent calls to
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
     // peformance.
-    unsigned int blas_threads = blas_num_threads(1);
+    unsigned int blas_threads = blas_num_threads_thread(1);
 
     // -----------------------------------------------------------------------------
     // Convenience constants:
@@ -271,7 +271,7 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
     BufferType Hi = new ElementType[NR*NR];
     // -----------------------------------------------------------------------------
     // If GCV is required, we will need some extra stuff:
-    ptrdiff_t info = 0;
+    BLAS_INT info = 0;
     int result_gcv;
     double lambdagcv;
     double costgcv;
@@ -442,15 +442,19 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
                 for( IndexType n=0; n<(IndexType)NR; ++n )
                     qpproblem.Qi[n+NR*n] = 1.0;
                 memcpy( Hi, H, NR*NR*sizeof(ElementType) );
-                ptrdiff_t NR_   = NR;
-                ptrdiff_t nrhs_ = NR;
-                dposv( "L", &NR_, &nrhs_, Hi, &NR_, qpproblem.Qi, &NR_, &info );
+                BLAS_INT NR_   = NR;
+                BLAS_INT nrhs_ = NR;
+                LAPACKCALLFCN(dposv)( "L", &NR_, &nrhs_, Hi, &NR_, qpproblem.Qi, &NR_, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                                       , 1
+#endif
+                );
             }
             else
                 memcpy( qpproblem.Qi, pinv, NR*NR*sizeof(double) );
             if(info<0){
-                // If info is not 0, it means that H cannot be inverted, 
-                // likely because it is not positive definite. The best we 
+                // If info is not 0, it means that H cannot be inverted,
+                // likely because it is not positive definite. The best we
                 // can do in this case is just setting the DTI solution:
                 setDTISolution( rx, ry, rz,
                         eigval[0], eigval[1], eigval[2],
@@ -478,9 +482,9 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
                 }
                 else{
                     // Otherwise, the solution to the problem is stored in
-                    // qpproblem.x, which we can directly pass as the 
+                    // qpproblem.x, which we can directly pass as the
                     // output:
-                    memcpy( &(args->io->eap[i*NR]), qpproblem.x, 
+                    memcpy( &(args->io->eap[i*NR]), qpproblem.x,
                             NR*sizeof(ElementType) );
                 }
             }
@@ -491,44 +495,34 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
                 // In MATLAB, we do:
                 //  resn  = ( atti - encode*eap );
                 //  resn  = (resn')*resn;
-                // which we can translate to direct Lapack's calls
+                // which we can translate to calls to mataux::
                 //   atti:   total_used x 1
                 //   encode: total_used x NR
                 //   eap:    NR x 1
-                ptrdiff_t NR_   = NR;
-                ptrdiff_t unit_ = 1;
-                ptrdiff_t total_used_ = total_used;
-                ElementType alpha_ = 1.0f;
-                ElementType beta_  = -1.0f;
-                dgemv( "N", &total_used_, &NR_, &alpha_, encode,
-                        &total_used_, &(args->io->eap[i*NR]), 
-                        &unit_, &beta_, atti, &unit_ );
-                ElementType resn = ddot( &total_used_, atti, &unit_, atti, &unit_ );
+                // Use qx as a temporary buffer to store encode*eap:
+                mataux::multiplyMxArrays( encode, &(args->io->eap[i*NR]), qx, total_used, NR, 1 );
+                // Subtract the arrays (atti can be re-used safely):
+                mataux::subtractMxArrays( qx, atti, atti, total_used, 1 );
+                // Compute the norm:
+                ElementType resn = mataux::normMxNDArray( atti, total_used );
                 args->io->resn[i] = resn;
             }
             if( args->io->lapln != NULL ){
                 // In MATLAB, we do:
                 //  lapln = dft*eap;
                 //  lapln = (lapln')*lapln;
-                // which we can translate to direct Lapack's calls
+                // which we can translate to calls to mataux::
                 //   dft: args->dftdim[0] x NR
                 //   eap: NR x 1
-                ptrdiff_t NR_   = NR;
-                ptrdiff_t unit_ = 1;
-                ptrdiff_t total_used_ = args->dftdim[0]; // Re-use the variable
-                ElementType alpha_ = 1.0f;
-                ElementType beta_  = 0.0f;
-                dgemv( "N", &total_used_, &NR_, &alpha_, dft,
-                      &total_used_, &(args->io->eap[i*NR]), 
-                      &unit_, &beta_, u, &unit_ ); // Re-use "u"
-                ElementType lapln = ddot( &total_used_, u, &unit_, u, &unit_ );
+                mataux::multiplyMxArrays( dft, &(args->io->eap[i*NR]), u, args->dftdim[0], NR, 1 );
+                ElementType lapln = mataux::normMxNDArray( u, args->dftdim[0] );
                 args->io->lapln[i] = lapln;
             }
             //---------------------------------------------------------------------
         }
     }
     while( start < args->getN() );
-   
+
     // Free memory previously allocated
     // --------------------------------------------------------------------
     delete[] gi2;
@@ -561,8 +555,8 @@ THFCNRET atti2hydidsi_process_fcn( void* inargs )
     // --------------------------------------------------------------------
 
     // Revert BLAS threads usage to its default:
-    blas_num_threads(blas_threads);
-    
+    blas_num_threads_thread(blas_threads);
+
     return (THFCNRET)NULL;
 }
 

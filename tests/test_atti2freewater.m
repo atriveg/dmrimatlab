@@ -1,10 +1,13 @@
-% test_dwi2freewater3
-rng(15,'twister');
-if(exist('setup__robotics_toolbox','file')~=2)
-    error('This test script uses the quaternion class to produce uniform random rotations: http://www.lpi.tel.uva.es/node/626');
+function test_atti2freewater
+
+sf = check_software_platform;
+if(sf==2)
+    pkg load statistics;
 end
 
-PLOTOTHERSCALARS = false; % C_l, C_p, C_s, FA...
+rng(15,'twister');
+
+PLOTOTHERSCALARS = true; % C_l, C_p, C_s, FA...
 SAMPLING  = 12;
 if(SAMPLING==5)
     bextra = input('bextra: ');
@@ -257,18 +260,24 @@ L = 4; % Order of the spherical harmonics
 lambda = 0.001; % Tikhonov regularisation for Spherical Harmonics
 tau = 1;
 
-% Precompute random rotations for each compartment;
-q1  = [1,ii,jj,kk]*randn(4,N);     % 1xN
-ph2 = (rand(1,N)-1/2)*pi/6;        % 1xN, random angle within the range [-15º,15º]
-q2  = cos(ph2/2) + kk.*sin(ph2/2); % 1xN, rotation above z in the range [-15º,15º]
-ph3 = (rand(1,N)-1/2)*pi/6;        % 1xN, random angle within the range [-15º,15º]
-ax3 = randn(3,N);
-ax3 = bsxfun( @(x,y)(x./y), ax3, sqrt(sum(ax3.*ax3,1)) ); % 3xN
-q3  = cos(ph3/2) + sin(ph3/2).*([ii,jj,kk]*ax3);          % 1xN
-q1  = q1./abs(q1);
-q2  = q2./abs(q2);
-q3  = q3./abs(q3);
-q   = {q1,q1.*q2,q1.*q3};
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Precompute random rotations for each compartment
+q1  = randn(N,4);
+nq1 = sqrt(sum(q1.*q1,2));
+q1  = q1./nq1;
+%%%
+ph2 = (rand(N,1)-1/2)*pi/6;
+q2  = [ cos(ph2/2), zeros(N,1), zeros(N,1), sin(ph2/2) ];
+%%%
+ph3 = (rand(N,1)-1/2)*pi/6;
+ax3 = randn(N,3);
+nax = sqrt(sum(ax3.*ax3,2));
+ax3 = ax3./nax;
+q3  = [ cos(ph3/2), ax3.*sin(ph3/2) ];
+%%%
+q   = { q1, multiply_quatrot(q1,q2), multiply_quatrot(q1,q3) };
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 f   = (1:1:20)/20;
 hp1 = zeros(1,3);
 for C=1:3
@@ -297,28 +306,22 @@ for C=1:3
         for nc=1:C
             % - Compute a random rotation for the eigenvectors of the
             %   compartment:
+            ii = [1,0,0];
+            jj = [0,1,0];
+            kk = [0,0,1];
             switch(nc)
                 case 1
-                    xx = q{nc}.*ii.*conj(q{nc}); % 1xN
-                    xx = imag(xx); % 3xN
-                    yy = q{nc}.*jj.*conj(q{nc}); % 1xN
-                    yy = imag(yy); % 3xN
-                    zz = q{nc}.*kk.*conj(q{nc}); % 1xN
-                    zz = imag(zz); % 3xN
+                    xx = apply_quatrot( q{nc}, ii )';
+                    yy = apply_quatrot( q{nc}, jj )';
+                    zz = apply_quatrot( q{nc}, kk )';
                 case 2
-                    xx = q{nc}.*jj.*conj(q{nc}); % 1xN
-                    xx = imag(xx); % 3xN
-                    yy = q{nc}.*kk.*conj(q{nc}); % 1xN
-                    yy = imag(yy); % 3xN
-                    zz = q{nc}.*ii.*conj(q{nc}); % 1xN
-                    zz = imag(zz); % 3xN
+                    xx = apply_quatrot( q{nc}, jj )';
+                    yy = apply_quatrot( q{nc}, kk )';
+                    zz = apply_quatrot( q{nc}, ii )';
                 case 3
-                    xx = q{nc}.*kk.*conj(q{nc}); % 1xN
-                    xx = imag(xx); % 3xN
-                    yy = q{nc}.*ii.*conj(q{nc}); % 1xN
-                    yy = imag(yy); % 3xN
-                    zz = q{nc}.*jj.*conj(q{nc}); % 1xN
-                    zz = imag(zz); % 3xN
+                    xx = apply_quatrot( q{nc}, kk )';
+                    yy = apply_quatrot( q{nc}, ii )';
+                    zz = apply_quatrot( q{nc}, jj )';
             end
             % - Generate random eigenvalues for this compartment:
             switch(EIGENVALS)
@@ -463,7 +466,7 @@ for C=1:3
     title(titletxt,'Interpreter','tex','FontSize',FS2);
     hold('on');
     grid('on');
-    hb1 = boxplot(f2cum,'colors',CLS(C,:),'positions',f,'labels',labels(1:20),'symbol','r');
+    hb1 = myboxplot(f2cum,'colors',CLS(C,:),'positions',f+(C-2)*0.011,'labels',labels(1:20),'symbol','r','widths',0.005,'BoxStyle','filled','notch','on');
     hp1(C) = plot(f,median(f2cum),'Color',CLS(C,:),'LineStyle','--');
     if(C==3)
         hl = legend(hp1,'1-Compartment','2-Compartments','3-Compartments');
@@ -543,7 +546,7 @@ for C=1:3
                 title(['PSNR=',num2str(PSNR),'; FA with tensor model'],'FontSize',FS2);
                 hold('on');
                 grid('on');
-                hb2 = boxplot(FA,'colors',CLS(C,:),'positions',f,'labels',labels(1:20),'symbol','r');
+                hb2 = myboxplot(FA,'colors',CLS(C,:),'positions',f+(C-2)*0.011,'labels',labels(1:20),'symbol','r','widths',0.005,'BoxStyle','filled','notch','on');
                 hp2(C) = plot(f,mean(FA),'Color',CLS(C,:),'LineStyle','--'); %#ok<SAGROW>
                 % -------------------------------------------------------------
                 figure(hf3);
@@ -552,7 +555,7 @@ for C=1:3
                 title(['PSNR=',num2str(PSNR),'; minimum eigenvalue with tensor model'],'FontSize',FS2);
                 hold('on');
                 grid('on');
-                hb3 = boxplot(ml,'colors',CLS(C,:),'positions',f,'labels',labels(1:20),'symbol','r');
+                hb3 = myboxplot(ml,'colors',CLS(C,:),'positions',f+(C-2)*0.011,'labels',labels(1:20),'symbol','r','widths',0.005,'BoxStyle','filled','notch','on');
                 hp3(C) = plot(f,mean(ml),'Color',CLS(C,:),'LineStyle','--'); %#ok<SAGROW>
                 % -------------------------------------------------------------
                 figure(hf4);
@@ -561,7 +564,7 @@ for C=1:3
                 title(['PSNR=',num2str(PSNR),'; C_l with tensor model'],'FontSize',FS2);
                 hold('on');
                 grid('on');
-                hb4 = boxplot(cl,'colors',CLS(C,:),'positions',f,'labels',labels(1:20),'symbol','r');
+                hb4 = myboxplot(cl,'colors',CLS(C,:),'positions',f+(C-2)*0.011,'labels',labels(1:20),'symbol','r','widths',0.005,'BoxStyle','filled','notch','on');
                 hp4(C) = plot(f,mean(cl),'Color',CLS(C,:),'LineStyle','--'); %#ok<SAGROW>
                 % -------------------------------------------------------------
                 figure(hf5);
@@ -570,7 +573,7 @@ for C=1:3
                 title(['PSNR=',num2str(PSNR),'; C_p with tensor model'],'FontSize',FS2);
                 hold('on');
                 grid('on');
-                hb5 = boxplot(cp,'colors',CLS(C,:),'positions',f,'labels',labels(1:20),'symbol','r');
+                hb5 = myboxplot(cp,'colors',CLS(C,:),'positions',f+(C-2)*0.011,'labels',labels(1:20),'symbol','r','widths',0.005,'BoxStyle','filled','notch','on');
                 hp5(C) = plot(f,mean(cp),'Color',CLS(C,:),'LineStyle','--'); %#ok<SAGROW>
                 % -------------------------------------------------------------
                 figure(hf6);
@@ -579,7 +582,7 @@ for C=1:3
                 title(['PSNR=',num2str(PSNR),'; C_s with tensor model'],'FontSize',FS2);
                 hold('on');
                 grid('on');
-                hb6 = boxplot(cs,'colors',CLS(C,:),'positions',f,'labels',labels(1:20),'symbol','r');
+                hb6 = myboxplot(cs,'colors',CLS(C,:),'positions',f+(C-2)*0.011,'labels',labels(1:20),'symbol','r','widths',0.005,'BoxStyle','filled','notch','on');
                 hp6(C) = plot(f,mean(cs),'Color',CLS(C,:),'LineStyle','--'); %#ok<SAGROW>
                 % -------------------------------------------------------------
                 if(C==3)
@@ -655,7 +658,7 @@ for C=1:3
                 title(['PSNR=',num2str(PSNR),'; GFA with SH, L=',num2str(L)],'FontSize',FS2);
                 hold('on');
                 grid('on');
-                hb2 = boxplot(FA,'colors',CLS(C,:),'positions',f,'labels',labels(1:20),'symbol','r');
+                hb2 = myboxplot(FA,'colors',CLS(C,:),'positions',f+(C-2)*0.011,'labels',labels(1:20),'symbol','r','widths',0.005,'BoxStyle','filled','notch','on');
                 hp2(C) = plot(f,mean(FA),'Color',CLS(C,:),'LineStyle','--'); %#ok<SAGROW>
                 % -------------------------------------------------------------
                 figure(hf3);
@@ -664,7 +667,7 @@ for C=1:3
                 title(['PSNR=',num2str(PSNR),'; minimum of the ADC with SH, L=',num2str(L)],'FontSize',FS2);
                 hold('on');
                 grid('on');
-                hb3 = boxplot(ml,'colors',CLS(C,:),'positions',f,'labels',labels(1:20),'symbol','r');
+                hb3 = myboxplot(ml,'colors',CLS(C,:),'positions',f+(C-2)*0.011,'labels',labels(1:20),'symbol','r','widths',0.005,'BoxStyle','filled','notch','on');
                 hp3(C) = plot(f,mean(ml),'Color',CLS(C,:),'LineStyle','--'); %#ok<SAGROW>
                 % -------------------------------------------------------------
                 if(C==3)
@@ -686,6 +689,19 @@ for C=1:3
                 % -------------------------------------------------------------
         end
     end
+end
+
+end
+
+function h = myboxplot(varargin)
+sf = check_software_platform;
+if(sf==1)
+    h = boxplot(varargin{:});
+else
+    [h,eraser] = boxplot(varargin{:});
+    delete(eraser.outliers);
+    delete(eraser.outliers2);
+end
 end
 
 

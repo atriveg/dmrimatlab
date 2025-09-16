@@ -46,7 +46,7 @@ unsigned int blas_num_threads(const unsigned int nth)
         omp_set_num_threads( (int)nth );
         return rnth;
     }
-#elif defined(_USE_OPENBLAS_THREAD_CONTROL) // ARM MAC
+#elif defined(_USE_OPENBLAS_THREAD_CONTROL) // ARM MAC and Octave
     if(nth==0)
         return (unsigned int)( openblas_get_num_threads() );
     else{
@@ -57,6 +57,15 @@ unsigned int blas_num_threads(const unsigned int nth)
 #else
     // Nothing to do here. Just return a reasonable value
     return 1;
+#endif
+}
+
+unsigned int blas_num_threads_thread(const unsigned int nth)
+{
+#ifdef OCTAVE_BUILD
+    return 1;
+#else
+    return blas_num_threads(nth);
 #endif
 }
 
@@ -164,12 +173,15 @@ bool DMRIThreader::threadedProcess(
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
     // peformance.
+
     unsigned int blas_threads = blas_num_threads(1);
 
     for( unsigned int tid=0; tid<nthreads; ++tid )
         rets[tid] = dmriCreateThread( &(threads[tid]), function, (void*)(this) );
+
     for( unsigned int tid=0; tid<nthreads; ++tid )
         dmriJoinThread( threads[tid] );
+
     for( unsigned int tid=0; tid<nthreads; ++tid )
         dmriCloseThread( threads[tid] );
 

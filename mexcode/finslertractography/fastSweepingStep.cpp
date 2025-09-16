@@ -10,7 +10,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/mexToMathsTypes.h"
 #include "../pixelIterators/iterators.h"

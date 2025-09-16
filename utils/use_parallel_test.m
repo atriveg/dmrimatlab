@@ -6,7 +6,7 @@ function use = use_parallel_test
 %   Suggestion: in the very beginning of your function, use:
 %      >> use_parallel = use_parallel_test
 %   within your function to avoid repeated calls to this function
-global use_parallel_test_var;
+global use_parallel_test_var; %#ok<GVMIS> 
 if(isempty(use_parallel_test_var))
     use = false;
 else

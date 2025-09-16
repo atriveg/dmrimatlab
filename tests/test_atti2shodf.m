@@ -1,10 +1,6 @@
 % test_dwi2freewater3
 rng(13,'twister');
 
-if(exist('quaternion','file')~=2)
-    error('This test script uses the quaternion class to produce uniform random rotations: http://www.lpi.tel.uva.es/node/626');
-end
-
 N = 6; % Number of synthetic voxels to be tested
 PSNR = 20; % Peak signal to noise ratio in the baseline
 sigma = 1/PSNR; % Standard deviation of noise to be added to the DWI (noiseless baseline assumed)
@@ -13,20 +9,27 @@ lambda = 0.006; % Tikhonov regularisation for Spherical Harmonics
 type = 'copdt';
 b0   = 3000;
 
-q1 = [1,ii,jj,kk]*randn(4,N); % 1xN
-q1 = q1./abs(q1); % Random rotations for the first compartment
-
-
 [gi,~,~] = icosamplesSphere(5,'O1',true); % Gx3
 G  = size(gi,1);
 bi = b0*ones(G,1);
 
-x1 = imag(q1.*ii.*conj(q1)); % 3xN
-y1 = imag(q1.*jj.*conj(q1)); % 3xN
-z1 = imag(q1.*kk.*conj(q1)); % 3xN
-x2 = imag(q1.*jj.*conj(q1)); % 3xN
-y2 = imag(q1.*kk.*conj(q1)); % 3xN
-z2 = imag(q1.*ii.*conj(q1)); % 3xN
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+q1  = randn(N,4);
+nq1 = sqrt(sum(q1.*q1,2));
+q1  = q1./nq1;
+ii  = [1,0,0];
+jj  = [0,1,0];
+kk  = [0,0,1];
+%%
+x1  = apply_quatrot( q1, ii )';
+y1  = apply_quatrot( q1, jj )';
+z1  = apply_quatrot( q1, kk )';
+%%
+x2  = apply_quatrot( q1, jj )';
+y2  = apply_quatrot( q1, kk )';
+z2  = apply_quatrot( q1, ii )';
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 l1 = 1.7e-3;
 l2 = 0.4e-3;
 S  = zeros(G,N);

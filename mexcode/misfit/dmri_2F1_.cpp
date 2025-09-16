@@ -9,7 +9,6 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/hypergeom2F1.h"
 #include "../mathsmex/mexToMathsTypes.h"
@@ -79,7 +78,7 @@ THFCNRET dmri_2F1_process_fcn( void* inargs )
 {
     ThArgs* args = (ThArgs*)inargs;
     ElementType g = args->g;
-    
+
     // Loop through the voxels
     IndexType start = 0;
     IndexType end   = 0;
@@ -95,6 +94,6 @@ THFCNRET dmri_2F1_process_fcn( void* inargs )
         }
     }
     while( start < args->getN() );
-    
+
     return (THFCNRET)NULL;
 }

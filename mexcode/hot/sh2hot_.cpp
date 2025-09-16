@@ -9,7 +9,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/sphericalHarmonics.h"
 #include "../mathsmex/matrixCalculus.h"
@@ -84,14 +84,20 @@ void mexFunction( int nlhs, mxArray *plhs[],
     IndexBuffer pivot1 = new IndexType[K];
     IndexBuffer pivot2 = new IndexType[K];
     // ---
-    ptrdiff_t flag = (ptrdiff_t)1;
-    ptrdiff_t KK   = (ptrdiff_t)(K);
-    ptrdiff_t lname = 6; // Length of "dgetri"
-    ptrdiff_t largs = 0; // Length of ""
-    ptrdiff_t BS  = ilaenv(
+    BLAS_INT flag = (BLAS_INT)1;
+    BLAS_INT KK   = (BLAS_INT)(K);
+    BLAS_INT lname = 6; // Length of "dgetri"
+    BLAS_INT largs = 0; // Length of ""
+#ifdef OCTAVE_BUILD
+    // ilaenv seems not to be present in liblapack. Use BS=4 as a
+    // "one size fits all" thing:
+    BLAS_INT BS = 4;
+#else
+    BLAS_INT BS  = LAPACKCALLFCN(ilaenv)(
         &flag, "dgetri", "",
         &KK, &KK, &KK, &KK, lname, largs ); // Last two arguments are the lengths of function name and args string
     BS = ( BS>4 ? BS : 4 );
+#endif
     SizeType lwork = (SizeType)BS*(SizeType)(K);
     // ---
     BufferType work = new ElementType[lwork];
@@ -138,7 +144,7 @@ THFCNRET sh2hot_process_fcn( void* inargs )
     // peformance. In non-POSIX systems, however, we don't
     // externally create threads and we can let Open MP do its
     // stuff.
-    unsigned int blas_threads = blas_num_threads(1);
+    unsigned int blas_threads = blas_num_threads_thread(1);
     
     // ---------------------------------------------------------------
     // Loop through the voxels
@@ -161,7 +167,7 @@ THFCNRET sh2hot_process_fcn( void* inargs )
     }
     while( start < N );
 
-    blas_num_threads(blas_threads);
+    blas_num_threads_thread(blas_threads);
     
     delete[] in;
     delete[] out;

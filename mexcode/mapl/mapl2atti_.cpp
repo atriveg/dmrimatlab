@@ -10,7 +10,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/matrixCalculus.h"
 #include "../threads/threadHelper.h"
@@ -135,7 +135,7 @@ THFCNRET mapl2atti_process_fcn( void* inargs )
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
     // peformance.
-    unsigned int blas_threads = blas_num_threads(1);
+    unsigned int blas_threads = blas_num_threads_thread(1);
     // -----------------------------------------------------------------------------
     // Auxiliary buffers to compute DTI spectrum:
     ElementType dti[6];
@@ -212,7 +212,7 @@ THFCNRET mapl2atti_process_fcn( void* inargs )
     while( start < args->getN() );
 
     // Revert BLAS threads usage to its default:
-    blas_num_threads(blas_threads);
+    blas_num_threads_thread(blas_threads);
 
     // Free memory previously allocated
     hermpols::destroyPolynomialCoeffs( coeffsHn );

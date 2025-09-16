@@ -1,8 +1,9 @@
-% test_dwi2freewater3
-rng(15,'twister');
-if(exist('setup__robotics_toolbox','file')~=2)
-    error('This test script uses the quaternion class to produce uniform random rotations: http://www.lpi.tel.uva.es/node/626');
+sf = check_software_platform;
+if(sf==2)
+    pkg load statistics;
 end
+
+rng(15,'twister');
 
 % -------------------------------------------------------------------------
 % Avoid repeated calls to is_broadcast_available, which will always return
@@ -70,18 +71,24 @@ L = 6; % Order of the spherical harmonics
 lambda = 0.006; % Tikhonov regularisation for Spherical Harmonics
 tau = 1;
 
-% Precompute random rotations for each compartment;
-q1  = [1,ii,jj,kk]*randn(4,N);     % 1xN
-ph2 = (rand(1,N)-1/2)*pi/18;       % 1xN, random angle within the range [-5º,5º]
-q2  = cos(ph2/2) + kk.*sin(ph2/2); % 1xN, rotation above z in the range [-5º,5º]
-ph3 = (rand(1,N)-1/2)*pi/9;        % 1xN, random angle within the range [-10º,10º]
-ax3 = randn(3,N);
-ax3 = bsxfun( @(x,y)(x./y), ax3, sqrt(sum(ax3.*ax3,1)) ); % 3xN
-q3  = cos(ph3/2) + sin(ph3/2).*([ii,jj,kk]*ax3);          % 1xN
-q1  = q1./abs(q1);
-q2  = q2./abs(q2);
-q3  = q3./abs(q3);
-q   = {q1,q1.*q2,q1.*q3};
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Precompute random rotations for each compartment
+q1  = randn(N,4);
+nq1 = sqrt(sum(q1.*q1,2));
+q1  = q1./nq1;
+%%%
+ph2 = (rand(N,1)-1/2)*pi/18;
+q2  = [ cos(ph2/2), zeros(N,1), zeros(N,1), sin(ph2/2) ];
+%%%
+ph3 = (rand(N,1)-1/2)*pi/9;
+ax3 = randn(N,3);
+nax = sqrt(sum(ax3.*ax3,2));
+ax3 = ax3./nax;
+q3  = [ cos(ph3/2), ax3.*sin(ph3/2) ];
+%%%
+q   = { q1, multiply_quatrot(q1,q2), multiply_quatrot(q1,q3) };
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 f   = (1:1:20)/20;
 hp1 = zeros(1,3);
 
@@ -149,28 +156,22 @@ for C=1:3
         for nc=1:C
             % - Compute a random rotation for the eigenvectors of the
             %   compartment:
+            ii = [1,0,0];
+            jj = [0,1,0];
+            kk = [0,0,1];
             switch(nc)
                 case 1
-                    xx = q{nc}.*ii.*conj(q{nc}); % 1xN
-                    xx = imag(xx); % 3xN
-                    yy = q{nc}.*jj.*conj(q{nc}); % 1xN
-                    yy = imag(yy); % 3xN
-                    zz = q{nc}.*kk.*conj(q{nc}); % 1xN
-                    zz = imag(zz); % 3xN
+                    xx = apply_quatrot( q{nc}, ii )';
+                    yy = apply_quatrot( q{nc}, jj )';
+                    zz = apply_quatrot( q{nc}, kk )';
                 case 2
-                    xx = q{nc}.*jj.*conj(q{nc}); % 1xN
-                    xx = imag(xx); % 3xN
-                    yy = q{nc}.*kk.*conj(q{nc}); % 1xN
-                    yy = imag(yy); % 3xN
-                    zz = q{nc}.*ii.*conj(q{nc}); % 1xN
-                    zz = imag(zz); % 3xN
+                    xx = apply_quatrot( q{nc}, jj )';
+                    yy = apply_quatrot( q{nc}, kk )';
+                    zz = apply_quatrot( q{nc}, ii )';
                 case 3
-                    xx = q{nc}.*kk.*conj(q{nc}); % 1xN
-                    xx = imag(xx); % 3xN
-                    yy = q{nc}.*ii.*conj(q{nc}); % 1xN
-                    yy = imag(yy); % 3xN
-                    zz = q{nc}.*jj.*conj(q{nc}); % 1xN
-                    zz = imag(zz); % 3xN
+                    xx = apply_quatrot( q{nc}, kk )';
+                    yy = apply_quatrot( q{nc}, ii )';
+                    zz = apply_quatrot( q{nc}, jj )';
             end
             % - Generate random eigenvalues for this compartment:
             l1 = 1.6 + 0.1*rand(1,N); % 1xN

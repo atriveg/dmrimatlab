@@ -64,7 +64,7 @@ extern "C" {
 /**
  * This case will be triggered by adding a -D_USE_OMP_THREAD_CONTROL to the
  * compiler instruction.
- * It is intended for Windows. Though Matlab's implementation of for Windows
+ * It is intended for Windows. Though Matlab's implementation for Windows
  * is based on MKL as well, it seems that MinGW is unable to dinamically
  * link against mkl.dll (no mkl.lib available), so we have to rely 
  * on the OpenMP implementation. In any case, Matlab-Windows mkl.dll seems
@@ -81,9 +81,9 @@ extern "C" {
 #elif defined(_USE_OPENBLAS_THREAD_CONTROL)
 
 /** 
- * Finally, current MAC machines based on ARM processors rely on the
+ * Current MAC machines based on ARM processors rely on the
  * OpenBLAS implementation, which includes its own routines for thread
- * control:
+ * control. For Octave builds, we will make use of OpenBLAS as well:
  *      void openblas_set_num_threads(int num_threads);
  *      int openblas_get_num_threads(void);
  * However, Matlab does not show the header file for these routines,
@@ -105,7 +105,9 @@ extern "C" {
  * (because you're not using BLAS/LAPACK) or you need to implement your
  * own method (for example, if you're liniking against a different BLAS
  * implementation or you are compiling your software independently from
- * Matlab
+ * Matlab.
+ * For example, this will be the case in Octave builds for which a local,
+ * non-threaded version of OpenBLAS is linked against.
  */
 
 #endif    
@@ -122,6 +124,7 @@ typedef HANDLE              THHANDLER;
 
 #include "mex.h"
 #include "../mathsmex/mexToMathsTypes.h"
+#include "../mathsmex/matrixCalculus.h"
 
 class DMRIThreader
 {
@@ -151,6 +154,8 @@ private:
 unsigned int get_number_of_threads( const unsigned int );
 
 unsigned int blas_num_threads(const unsigned int);
+
+unsigned int blas_num_threads_thread(const unsigned int);
 
 int dmriCreateThread( THHANDLER*, THFCNRET (*)(void *), void* );
 

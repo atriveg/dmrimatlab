@@ -188,6 +188,9 @@ opt.glyphscvar = 'none';   optchk.glyphscvar = [true,false]; % variable size str
 % Automatically parse:
 opt = custom_parse_inputs(opt,optchk,varargin{:});
 
+% Check software platform:
+sf = check_software_platform;
+
 space = plotdmri3d_space_string2matrix(opt.space);
 
 if(isempty(opt.ha))
@@ -283,7 +286,11 @@ if(~isempty(bgimage))
         RGB(:,:,1) = R;
         RGB(:,:,2) = G;
         RGB(:,:,3) = B;
-        [CS,bgmap] = rgb2ind(RGB,256);
+        if(sf==1) % Matlab
+            [CS,bgmap] = rgb2ind(RGB,256);
+        else % Octave's rgb2ind does not support color quantization
+            [CS,bgmap] = rgb2ind(RGB);
+        end
         CS = double(CS);
         CS(rgbmask) = nan;
     end
@@ -305,14 +312,23 @@ if(~isempty(bgimage))
     cmap  = colormap(ha);
     nclrs = size(cmap,1);
     cmap  = [cmap;bgmap];
+    % This is not used in Octave:
     alpha = ones(size(CS))*opt.bgalpha;
     alpha(isnan(CS)) = 0;
     if(strcmp(opt.bgimage,'color'))
         CS = double(CS) + nclrs + 1;
-        ho.bgimage = surf(XS2,YS2,ZS2,CS,'LineStyle','none','FaceColor','texturemap','FaceAlpha','texturemap','AlphaData',alpha,'Parent',ha,'CDataMapping','direct');        
+        if(sf==1) % Matlab
+            ho.bgimage = surf(XS2,YS2,ZS2,CS,'LineStyle','none','FaceColor','texturemap','FaceAlpha','texturemap','AlphaData',alpha,'Parent',ha,'CDataMapping','direct');
+        else % Octave
+            ho.bgimage = surf(XS2,YS2,ZS2,CS,'LineStyle','none','FaceColor','interp','FaceAlpha',opt.bgalpha,'AlphaData',alpha,'Parent',ha,'CDataMapping','direct');
+        end
     else
         CS = 255*( CS - min(CS(~isnan(CS))) )/( max(CS(~isnan(CS))) - min(CS(~isnan(CS))) ) + nclrs + 1;
-        ho.bgimage = surf(XS2,YS2,ZS2,CS,'LineStyle','none','FaceColor','interp','FaceAlpha','interp','AlphaData',alpha,'Parent',ha,'CDataMapping','direct');
+        if(sf==1) % Matlab
+            ho.bgimage = surf(XS2,YS2,ZS2,CS,'LineStyle','none','FaceColor','interp','FaceAlpha','interp','AlphaData',alpha,'Parent',ha,'CDataMapping','direct');
+        else % Octave
+            ho.bgimage = surf(XS2,YS2,ZS2,CS,'LineStyle','none','FaceColor','interp','FaceAlpha',opt.bgalpha,'AlphaData',alpha,'Parent',ha,'CDataMapping','direct');
+        end
     end
     colormap(ha,cmap);
 end

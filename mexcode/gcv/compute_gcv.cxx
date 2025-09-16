@@ -12,7 +12,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 
 #include "compute_gcv.h"
@@ -30,6 +30,9 @@ void allocateGCVMemory( const SizeType neqs, const SizeType NR, GCVParams* param
     params->lambda0 = 0.1f;
     params->lambdastep = exp(-log(10)/5.0f);
     params->maxvals = 20;
+#ifdef OCTAVE_BUILD
+    params->Phi_T = new ElementType[NR*neqs]; // NR x neqs
+#endif
     params->Pinv  = new ElementType[NR*NR];
     params->Pinv0 = new ElementType[NR*NR];
     params->R = new ElementType[neqs*NR];
@@ -40,6 +43,9 @@ void allocateGCVMemory( const SizeType neqs, const SizeType NR, GCVParams* param
 
 void freeGCVMemory( GCVParams* params)
 {
+#ifdef OCTAVE_BUILD
+    delete[] params->Phi_T;
+#endif
     delete[] params->Pinv;
     delete[] params->Pinv0;
     delete[] params->R;
@@ -89,6 +95,12 @@ int computeGCV( const BufferType Phi,
     lambda = lambda0;
     cost   = 0.0f;
     int result = 1;
+#ifdef OCTAVE_BUILD
+    // For some reason, dgemm crashes for both OpenBLAS and Netlib's BLAS when
+    // it is called with its second argument tranposed. Hence, we will store
+    // here Phi^T (computed only once) and use the regular call to dgemm:
+    mataux::transposeMxArray( Phi, params->Phi_T, neqs, NR );
+#endif
     for( unsigned int i=0; i<params->maxvals; ++i ){
         //-------------------------------------------------------------------
         // Compute first the matrix to invert:
@@ -98,13 +110,17 @@ int computeGCV( const BufferType Phi,
         mataux::addMxArrays( Phisq, Pinv, Pinv, NR, NR );
         //-------------------------------------------------------------------
         // Invert the matrix using LAPACK
-        ptrdiff_t NR_  = NR;
-        ptrdiff_t info = 0;
+        BLAS_INT NR_  = NR;
+        BLAS_INT info = 0;
         // Prepare right hand side (params->Pinv) by constructing
         // an identity matrix
         setIdentityMatrix( NR, params->Pinv );
         // Call LAPACK's implmentation
-        dposv( "L", &NR_, &NR_, Pinv, &NR_, params->Pinv, &NR_, &info );
+        LAPACKCALLFCN(dposv)( "L", &NR_, &NR_, Pinv, &NR_, params->Pinv, &NR_, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                              , 1
+#endif
+        );
         // If dposv worked appropriately, params->Pinv contains the
         // inverse of the original Pinv matrix, i.e.
         //      params->Pinv <- (Phi'*Phi + lambda*L'*L)^(-1)
@@ -114,7 +130,14 @@ int computeGCV( const BufferType Phi,
         //-------------------------------------------------------------------
         // Create the big matrix used to test the GCV cost
         mataux::multiplyMxArrays( Phi, params->Pinv, params->R, neqs, NR, NR ); // neqs x NR
+#ifdef OCTAVE_BUILD
+        // For some reason, dgemm crashes for both OpenBLAS and Netlib's BLAS when
+        // it is called with its second argument tranposed. Hence, we will call
+        // dgemm without transposed matrixes:
+        mataux::multiplyMxArrays( params->R, params->Phi_T, params->S, neqs, NR, neqs ); // neqs x neqs
+#else
         mataux::multiplyMxArraysTranspose( params->R, Phi, params->S, neqs, NR, neqs ); // neqs x neqs
+#endif
         for( IndexType r=0; r<neqs; ++r ) // Subtract the identity matrix; neqs x neqs
             params->S[r+r*neqs] -= 1;
         //-------------------------------------------------------------------

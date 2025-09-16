@@ -10,7 +10,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/mexToMathsTypes.h"
@@ -178,7 +178,7 @@ THFCNRET signal2dti_process_fcn( void* inargs )
     // peformance. In non-POSIX systems, however, we don't
     // externally create threads and we can let Open MP do its
     // stuff.
-    unsigned int blas_threads = blas_num_threads(1);
+    unsigned int blas_threads = blas_num_threads_thread(1);
     
     // Convenience constants:
     SizeType G = args->G;
@@ -191,8 +191,8 @@ THFCNRET signal2dti_process_fcn( void* inargs )
     ElementType xr2[7];
     ElementType eigval[3];
     ElementType eigvec[9];
-    const ptrdiff_t dim = 3;
-    ptrdiff_t info = 0;
+    const BLAS_INT dim = 3;
+    BLAS_INT info = 0;
     ElementType work[9]; // According to Lapack's docs for dspev 
     // ---------------------------------------------------------------
     // The gradients matrix:
@@ -230,14 +230,20 @@ THFCNRET signal2dti_process_fcn( void* inargs )
     // ---
     IndexType pivot1[7];
     IndexType pivot2[7];
-    ptrdiff_t flag = 1;
-    ptrdiff_t K = 7;
-    ptrdiff_t lname = 6; // Length of "dgetri"
-    ptrdiff_t largs = 0; // Length of ""
-    ptrdiff_t BS  = ilaenv(
+    BLAS_INT flag = 1;
+    BLAS_INT K = 7;
+    BLAS_INT lname = 6; // Length of "dgetri"
+    BLAS_INT largs = 0; // Length of ""
+#ifdef OCTAVE_BUILD
+    // ilaenv seems not to be present in liblapack. Use BS=4 as a
+    // "one size fits all" thing:
+    BLAS_INT BS = 4;
+#else
+    BLAS_INT BS  = LAPACKCALLFCN(ilaenv)(
             &flag, "dgetri", "", 
             &K, &K, &K, &K, lname, largs );
     BS = ( BS>4 ? BS : 4 );
+#endif
     SizeType lwork = BS*7;
     BufferType work2 = new ElementType[lwork];
     mataux::checkAndInvertMxArray( (BufferType)ATA, 7, mxGetEps()*10, (IndexBuffer)pivot1, (IndexBuffer)pivot2, lwork, work2 );
@@ -323,7 +329,11 @@ THFCNRET signal2dti_process_fcn( void* inargs )
             // compute a feasible initial iteration).
             if( params->mode=='p' || params->fixmode!='n' ){
                 memcpy( (BufferType)dti, (BufferType)x, 6*sizeof(ElementType) );
-                dspev( "V", "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info );
+                LAPACKCALLFCN(dspev)( "V", "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                , 1, 1
+#endif
+                );
                 if(info==0){
                     if( params->fixmode=='a' ){
                         eigval[0] = abs( eigval[0] );
@@ -364,7 +374,7 @@ THFCNRET signal2dti_process_fcn( void* inargs )
     }
     while( start < args->getN() );
     
-    blas_num_threads(blas_threads);
+    blas_num_threads_thread(blas_threads);
     
     // Free memory previously allocated
     delete[] lSi;

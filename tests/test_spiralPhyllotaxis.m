@@ -1,4 +1,9 @@
 % test_spiralPhyllotaxis.m
+sf = check_software_platform;
+if(sf==2)
+    pkg load statistics;
+end
+
 Ns     = [8,16,32,32,64,64];
 [G,ps] = spiralPhyllotaxis(Ns);
 G      = optimizeGradientSets( G, ps, ...
@@ -24,7 +29,7 @@ patch( 'Vertices', polyhedron.vertices, ...
     'Faces', polyhedron.facets, 'FaceColor', [0.2,0.2,0.4], ...
     'FaceAlpha', 0.9, 'EdgeAlpha', 0 );
 light;
-lighting('phong');
+lighting('gouraud');
 axis('equal');
 axis('off');
 title('All shells','FontSize',32);
@@ -36,7 +41,7 @@ patch( 'Vertices', polyhedron.vertices, ...
     'Faces', polyhedron.facets, 'FaceColor', [0.2,0.2,0.4], ...
     'FaceAlpha', 0.9, 'EdgeAlpha', 0 );
 light;
-lighting('phong');
+lighting('gouraud');
 axis('equal');
 axis('off');
 title('Current shell','FontSize',32);

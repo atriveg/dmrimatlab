@@ -9,7 +9,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/matrixCalculus.h"
 #include "hermitePols.h"
@@ -245,6 +245,12 @@ THFCNRET mapl2samples_process_fcn( void* inargs )
 {
     ThArgs* args = (ThArgs*)inargs;
     
+    // Note: this call is crucial so that subsequent calls to
+    // Lapack/BLAS won't create their own threads that blow up
+    // the total amount of threads putting down the overall
+    // peformance.
+    unsigned int blas_threads = blas_num_threads_thread(1);
+
     // Get a unique thread ordinal to create different seeds for each thread
     unsigned short seed16v[3];
     unsigned int thid = args->getThid();
@@ -376,6 +382,9 @@ THFCNRET mapl2samples_process_fcn( void* inargs )
     }
     while( start < args->getN() );
     
+    // Revert BLAS threads usage to its default:
+    blas_num_threads_thread(blas_threads);
+
     // Free memory previously allocated
     hermpols::destroyPolynomialCoeffs( coeffsHn );
     mapl::destroyDictionaryBuffers( rx, ry, rz,

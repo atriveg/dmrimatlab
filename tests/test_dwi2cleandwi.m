@@ -1,4 +1,8 @@
 % test_jaLMMSE
+sf = check_software_platform;
+if(sf==2)
+    pkg load signal;
+end
 
 disp('NOTE: This script is mainly intended to give you an idea on how');
 disp('   long each filter configuration will take in your computer');

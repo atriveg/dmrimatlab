@@ -11,7 +11,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/sphericalHarmonics.h"
 #include "../mathsmex/matrixCalculus.h"
@@ -289,7 +289,7 @@ THFCNRET posodfsh_process_fcn( void* inargs )
     // peformance. In non-POSIX systems, however, we don't
     // externally create threads and we can let Open MP do its
     // stuff.
-    unsigned int blas_threads = blas_num_threads(1);
+    unsigned int blas_threads = blas_num_threads_thread(1);
     
     // Convenience constants:
     SizeType N = args->features->N;
@@ -421,7 +421,7 @@ THFCNRET posodfsh_process_fcn( void* inargs )
     if( (args->algorithm=='N') || (args->algorithm=='C') )
         posODFs::destroyNRWorkBuffers( &nrwork );
 
-    blas_num_threads(blas_threads);
+    blas_num_threads_thread(blas_threads);
     
     return (THFCNRET)NULL;
 }

@@ -1,8 +1,11 @@
-% test_atti2micro
-rng(15,'twister');
-if(exist('setup__robotics_toolbox','file')~=2)
-    error('This test script uses the quaternion class to produce uniform random rotations: http://www.lpi.tel.uva.es/node/626');
+function test_atti2micro
+
+sf = check_software_platform;
+if(sf==2)
+    pkg load statistics;
 end
+
+rng(15,'twister');
 
 SAMPLING = 3;
 NOISE    = 'rice';      % 'rice'/'gauss'
@@ -61,18 +64,24 @@ L = 2; % Order of the spherical harmonics
 lambda = 0.006; % Tikhonov regularisation for Spherical Harmonics
 tau = 1;
 
-% Precompute random rotations for each compartment;
-q1  = [1,ii,jj,kk]*randn(4,N);     % 1xN
-ph2 = (rand(1,N)-1/2)*pi/6;        % 1xN, random angle within the range [-15º,15º]
-q2  = cos(ph2/2) + kk.*sin(ph2/2); % 1xN, rotation above z in the range [-15º,15º]
-ph3 = (rand(1,N)-1/2)*pi/6;        % 1xN, random angle within the range [-15º,15º]
-ax3 = randn(3,N);
-ax3 = bsxfun( @(x,y)(x./y), ax3, sqrt(sum(ax3.*ax3,1)) ); % 3xN
-q3  = cos(ph3/2) + sin(ph3/2).*([ii,jj,kk]*ax3);          % 1xN
-q1  = q1./abs(q1);
-q2  = q2./abs(q2);
-q3  = q3./abs(q3);
-q   = {q1,q1.*q2,q1.*q3};
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Precompute random rotations for each compartment
+q1  = randn(N,4);
+nq1 = sqrt(sum(q1.*q1,2));
+q1  = q1./nq1;
+%%%
+ph2 = (rand(N,1)-1/2)*pi/6;
+q2  = [ cos(ph2/2), zeros(N,1), zeros(N,1), sin(ph2/2) ];
+%%%
+ph3 = (rand(N,1)-1/2)*pi/6;
+ax3 = randn(N,3);
+nax = sqrt(sum(ax3.*ax3,2));
+ax3 = ax3./nax;
+q3  = [ cos(ph3/2), ax3.*sin(ph3/2) ];
+%%%
+q   = { q1, multiply_quatrot(q1,q2), multiply_quatrot(q1,q3) };
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 f   = (1:1:20)/20;
 hp1 = zeros(1,3);
 for C=1:3
@@ -101,28 +110,22 @@ for C=1:3
         for nc=1:C
             % - Compute a random rotation for the eigenvectors of the
             %   compartment:
+            ii = [1,0,0];
+            jj = [0,1,0];
+            kk = [0,0,1];
             switch(nc)
                 case 1
-                    xx = q{nc}.*ii.*conj(q{nc}); % 1xN
-                    xx = imag(xx); % 3xN
-                    yy = q{nc}.*jj.*conj(q{nc}); % 1xN
-                    yy = imag(yy); % 3xN
-                    zz = q{nc}.*kk.*conj(q{nc}); % 1xN
-                    zz = imag(zz); % 3xN
+                    xx = apply_quatrot( q{nc}, ii )';
+                    yy = apply_quatrot( q{nc}, jj )';
+                    zz = apply_quatrot( q{nc}, kk )';
                 case 2
-                    xx = q{nc}.*jj.*conj(q{nc}); % 1xN
-                    xx = imag(xx); % 3xN
-                    yy = q{nc}.*kk.*conj(q{nc}); % 1xN
-                    yy = imag(yy); % 3xN
-                    zz = q{nc}.*ii.*conj(q{nc}); % 1xN
-                    zz = imag(zz); % 3xN
+                    xx = apply_quatrot( q{nc}, jj )';
+                    yy = apply_quatrot( q{nc}, kk )';
+                    zz = apply_quatrot( q{nc}, ii )';
                 case 3
-                    xx = q{nc}.*kk.*conj(q{nc}); % 1xN
-                    xx = imag(xx); % 3xN
-                    yy = q{nc}.*ii.*conj(q{nc}); % 1xN
-                    yy = imag(yy); % 3xN
-                    zz = q{nc}.*jj.*conj(q{nc}); % 1xN
-                    zz = imag(zz); % 3xN
+                    xx = apply_quatrot( q{nc}, kk )';
+                    yy = apply_quatrot( q{nc}, ii )';
+                    zz = apply_quatrot( q{nc}, jj )';
             end
             % - Generate random eigenvalues for this compartment:
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -201,7 +204,8 @@ for C=1:3
     title(['PSNR=',num2str(PSNR)],'Interpreter','tex','FontSize',FS2);
     hold('on');
     grid('on');
-    hb1 = boxplot(f2cum,'colors',CLS(C,:),'positions',f,'labels',labels(1:20),'symbol','r');
+    hb1 = myboxplot(f2cum,'colors',CLS(C,:),'positions',f+(C-2)*0.011,'labels',labels(1:20),'symbol','r','widths',0.005,'BoxStyle','filled','notch','on');
+
     hp1(C) = plot(f,mean(f2cum),'Color',CLS(C,:),'LineStyle','--');
     if(C==3)
         hl = legend(hp1,'1-Compartment','2-Compartments','3-Compartments');
@@ -211,3 +215,17 @@ for C=1:3
         axis([0,1,-0.05,1.05]);
     end
 end
+
+end
+
+function h = myboxplot(varargin)
+sf = check_software_platform;
+if(sf==1)
+    h = boxplot(varargin{:});
+else
+    [h,eraser] = boxplot(varargin{:});
+    delete(eraser.outliers);
+    delete(eraser.outliers2);
+end
+end
+

@@ -9,7 +9,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/sphericalHarmonics.h"
 #include "../mathsmex/mexToMathsTypes.h"
@@ -206,6 +206,14 @@ THFCNRET shodf2samples_process_fcn( void* inargs )
 {
     ThArgs* args = (ThArgs*)inargs;
     
+    // Note: this call is crucial so that subsequent calls to
+    // Lapack/BLAS won't create their own threads that blow up
+    // the total amount of threads putting down the overall
+    // peformance. In non-POSIX systems, however, we don't
+    // externally create threads and we can let Open MP do its
+    // stuff.
+    unsigned int blas_threads = blas_num_threads_thread(1);
+
     // Get a unique thread ordinal to create different seeds for each thread
     unsigned short seed16v[3];
     unsigned int thid = args->getThid();
@@ -267,6 +275,8 @@ THFCNRET shodf2samples_process_fcn( void* inargs )
     }
     while( start < args->getN() );
     
+    blas_num_threads_thread(blas_threads);
+
     delete[] Ylm;
     delete[] buffer;
     delete[] buffer2;

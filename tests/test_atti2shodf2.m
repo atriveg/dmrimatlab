@@ -1,10 +1,6 @@
 % test_dwi2freewater3
 rng(13,'twister');
 
-if(exist('quaternion','file')~=2)
-    error('This test script uses the quaternion class to produce uniform random rotations: http://www.lpi.tel.uva.es/node/626');
-end
-
 N = 6; % Number of synthetic voxels to be tested
 PSNR = 13.3; % Peak signal to noise ratio in the baseline
 sigma = 1/PSNR; % Standard deviation of noise to be added to the DWI (noiseless baseline assumed)
@@ -15,28 +11,44 @@ b0   = 1200;
 
 rrot = true;
 
-q1 = pi*[90,80,70,60,55,47]/180;
-q1 = cos(q1/2) + kk.*sin(q1/2);
-q1 = q1./abs(q1);
+
 
 [gi,~,~] = icosamplesSphere(5,'O1',true); % Gx3
 G  = size(gi,1);
 bi = b0*ones(G,1);
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+q1 = pi*[90;80;70;60;55;47]/180;
+q1 = [ cos(q1/2), zeros(N,1), zeros(N,1), sin(q1/2) ];
+%%%
+ii  = [1,0,0];
+jj  = [0,1,0];
+kk  = [0,0,1];
+%%%
+x2  = apply_quatrot( q1, ii )';
+y2  = apply_quatrot( q1, jj )';
+z2  = apply_quatrot( q1, kk )';
+%%%
 x1 = [ones(1,N);zeros(1,N);zeros(1,N)]; % 3xN
 y1 = [zeros(1,N);ones(1,N);zeros(1,N)]; % 3xN
 z1 = [zeros(1,N);zeros(1,N);ones(1,N)]; % 3xN
-x2 = imag(q1.*ii.*conj(q1)); % 3xN
-y2 = imag(q1.*jj.*conj(q1)); % 3xN
-z2 = imag(q1.*kk.*conj(q1)); % 3xN
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 l1 = 1.7e-3;
 l2 = 0.3e-3;
 S  = zeros(G,N);
 for n=1:N
     if(rrot)
-        q1 = [1,ii,jj,kk]*randn(4,1);
-        q1 = q1/abs(q1);
-        RR = quat2rot(q1);
+        %%%%%%
+        q1  = randn(1,4);
+        nq1 = sqrt(sum(q1.*q1));
+        q1  = q1/nq1;
+        c1  = apply_quatrot( q1, ii )';
+        c2  = apply_quatrot( q1, jj )';
+        c3  = apply_quatrot( q1, kk )';
+        RR = [c1,c2,c3];
+        %%%%%%
         x1(:,n) = RR*x1(:,n); y1(:,n) = RR*y1(:,n); z1(:,n) = RR*z1(:,n);
         x2(:,n) = RR*x2(:,n); y2(:,n) = RR*y2(:,n); z2(:,n) = RR*z2(:,n);
     end

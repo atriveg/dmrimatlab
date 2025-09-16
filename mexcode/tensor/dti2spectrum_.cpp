@@ -10,7 +10,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/mexToMathsTypes.h"
@@ -42,7 +42,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
                   int nrhs, const mxArray *prhs[])
 {
     /** INPUTS (No error checking is performed):
-     * 
+     *
      * prhs[0]: dti, the signal to fit, 6 x N
      * prhs[1]: maxthreads, 1x1
      *
@@ -126,16 +126,16 @@ THFCNRET dti2spectrum_process_fcn( void* inargs )
     // peformance. In non-POSIX systems, however, we don't
     // externally create threads and we can let Open MP do its
     // stuff.
-    unsigned int blas_threads = blas_num_threads(1);
-    
+    unsigned int blas_threads = blas_num_threads_thread(1);
+
     // Allocate auxiliar buffers for computations
     // ---------------------------------------------------------------
     // Allocate memory to compute eigenvalues and eigenvectors
     ElementType dti[6];
     ElementType eigval[3];
     ElementType eigvec[9];
-    const ptrdiff_t dim = 3;
-    ptrdiff_t info = 0;
+    const BLAS_INT dim = 3;
+    BLAS_INT info = 0;
     ElementType work[9]; // According to Lapack's docs for dspev
     ElementType nanval = NAN;
     // ---------------------------------------------------------------
@@ -152,7 +152,11 @@ THFCNRET dti2spectrum_process_fcn( void* inargs )
             memcpy( (BufferType)dti, &(io->dti[6*i]), 6*sizeof(ElementType) );
             //---------------------------------------------------------------------
             // Call Lapack's dspev:
-            dspev( args->mode, "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info );
+            LAPACKCALLFCN(dspev)( args->mode, "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                                  , 1, 1
+#endif
+            );
             //---------------------------------------------------------------------
             // Fill the outputs:
             // NOTE: dspev return the eigenvalues in ascending order, but the DTI
@@ -184,7 +188,7 @@ THFCNRET dti2spectrum_process_fcn( void* inargs )
     }
     while( start < args->getN() );
 
-    blas_num_threads(blas_threads);
-    
+    blas_num_threads_thread(blas_threads);
+
     return (THFCNRET)NULL;
 }

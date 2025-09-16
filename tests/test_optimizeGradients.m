@@ -1,6 +1,6 @@
 % test_optimizeGradients
 N = 4;
-type = 'o';
+type = 'i';
 
 for n=1:N
     if(n==1)
@@ -26,7 +26,7 @@ patch( 'Vertices', pol.vertices, ...
 axis('equal');
 light;
 rotate3d('on');
-lighting('phong');
+lighting('gouraud');
 
 %%% -------
 for n=1:N
@@ -67,4 +67,4 @@ patch( 'Vertices', pol.vertices, ...
 axis('equal');
 light;
 rotate3d('on');
-lighting('phong');
+lighting('gouraud');

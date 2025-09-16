@@ -1,4 +1,11 @@
 %%% test_shodf2samples.m
+function test_shodf2samples
+
+sf = check_software_platform;
+if(sf==2)
+    pkg load statistics;
+end
+
 clear;
 close('all');
 %clc;
@@ -38,7 +45,7 @@ close(figure(1));
 figure(1);
 hold('on');
 grid('on');
-histogram(dirs(:,1),'Normalization','pdf');
+histogram(dirs(:,1),40,'Normalization','pdf');
 plot(tt,pTheta,'LineStyle','--','Color',[.5,.0,.0],'LineWidth',2);
 xlabel('theta');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -46,7 +53,7 @@ close(figure(2));
 figure(2);
 hold('on');
 grid('on');
-histogram(dirs(:,2),'Normalization','pdf');
+histogram(dirs(:,2),40,'Normalization','pdf');
 plot(pp,pPhi,'LineStyle','--','Color',[.5,.0,.0],'LineWidth',2);
 xlabel('phi');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -55,9 +62,9 @@ hf3 = figure(3);
 hold('on');
 grid('on');
 hs = surf(TT,PP,ODF,ones(size(TT)),'EdgeColor','none','FaceAlpha',0.5);
-hs.FaceColor = 'flat';
-hs.CDataMode = 'manual';
-hs.CData     = ones(size(TT));
+set(hs,'FaceColor','flat');
+%hs.CDataMode = 'manual';
+set(hs,'CData',ones(size(TT)));
 colormap([.5,.0,.0]);
 histogram2(dirs(:,1),dirs(:,2),'Normalization','pdf');
 xlabel('theta');
@@ -65,7 +72,7 @@ ylabel('phi');
 rotate3d('on');
 title('rotate me');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+end
 
 % -------------------------------------------------------------------------
 function bds = bound_sh(L,N)

@@ -27,7 +27,7 @@ patch( 'Vertices', polyhedron.vertices, ...
     'Faces', polyhedron.facets, 'FaceColor', [0.2,0.2,0.4], ...
     'FaceAlpha', 0.9, 'EdgeAlpha', 0 );
 light;
-lighting('phong');
+lighting(phong);
 axis('equal');
 axis('off');
 title('All shells','FontSize',32);
@@ -39,7 +39,7 @@ patch( 'Vertices', polyhedron.vertices, ...
     'Faces', polyhedron.facets, 'FaceColor', [0.2,0.2,0.4], ...
     'FaceAlpha', 0.9, 'EdgeAlpha', 0 );
 light;
-lighting('phong');
+lighting(phong);
 axis('equal');
 axis('off');
 title('Current shell','FontSize',32);

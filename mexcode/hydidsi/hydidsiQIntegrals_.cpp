@@ -10,7 +10,7 @@
  *========================================================*/
 
 #include "mex.h"
-#include "matrix.h"
+//#include "matrix.h"
 #include "math.h"
 #include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/sphericalHarmonics.h"
@@ -46,7 +46,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
                   int nrhs, const mxArray *prhs[])
 {
     /** INPUTS (No error checking is performed):
-     * 
+     *
      * prhs[0]:  eap, the EAP as computed with atti2hydidsi, NR x N
      * prhs[1]:  dti, the tensor fit of the signal as returned by atti2hydidsi, 6 x N
      * prhs[2]:  Qx, the x-bandwidth as computed with atti2hydidsi, 1 x N
@@ -60,7 +60,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
      *  OUTPUTS:
      *
      * plhs[0]: integrals, the integrals at the desired directions in Gi, G x N
-     * 
+     *
      */
     //=======================================================================================
     /** Make sure this function is called in a "controlable" way*/
@@ -122,7 +122,7 @@ THFCNRET hydidsiQIntegrals_process_fcn( void* inargs )
     // Lapack/BLAS won't create their own threads that blow up
     // the total amount of threads putting down the overall
     // peformance.
-    unsigned int blas_threads = blas_num_threads(1);
+    unsigned int blas_threads = blas_num_threads_thread(1);
 
     // Convenience constants:
     SizeType NR = args->NR;
@@ -132,9 +132,9 @@ THFCNRET hydidsiQIntegrals_process_fcn( void* inargs )
     ElementType dti[6];
     ElementType eigval[3];
     ElementType eigvec[9];
-    const ptrdiff_t dim = 3;
-    ptrdiff_t info = 0;
-    ElementType work[9]; // According to Lapack's docs for dspev 
+    const BLAS_INT dim = 3;
+    BLAS_INT info = 0;
+    ElementType work[9]; // According to Lapack's docs for dspev
     // ---
     BufferType rx = new ElementType[NR];
     BufferType ry = new ElementType[NR];
@@ -153,7 +153,11 @@ THFCNRET hydidsiQIntegrals_process_fcn( void* inargs )
             // 1- Check the tensor model and compute eigenvalues and eigenvectors
             //    to shape the transformed space (will use Lapack's dsyev)
             memcpy( dti, &(io->dti[6*i]), 6*sizeof(ElementType) );
-            dspev( "V", "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info );
+            LAPACKCALLFCN(dspev)( "V", "L", &dim, (BufferType)dti, (BufferType)eigval, (BufferType)eigvec, &dim, (BufferType)work, &info
+#ifdef LAPACK_FORTRAN_STRLEN_END
+                                  , 1, 1
+#endif
+            );
             if(info!=0){
                 // Computation failed for some reason. Fill eigenvalues with
                 // free-water value:
@@ -269,7 +273,7 @@ THFCNRET hydidsiQIntegrals_process_fcn( void* inargs )
         }
     }
     while( start < args->getN() );
-    
+
     // Free memory previously allocated
     delete[] rx;
     delete[] ry;
@@ -277,7 +281,7 @@ THFCNRET hydidsiQIntegrals_process_fcn( void* inargs )
     delete[] rs;
 
     // Revert BLAS threads usage to its default:
-    blas_num_threads(blas_threads);
-    
+    blas_num_threads_thread(blas_threads);
+
     return (THFCNRET)NULL;
 }
