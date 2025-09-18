@@ -67,7 +67,6 @@ else
 end
 
 % ------------------------------------------------------------------------------
-mtlroot     = matlabroot;
 path0       = mfilename('fullpath');
 [path0,~,~] = fileparts(path0);
 
@@ -94,7 +93,14 @@ if(isunix)
         case 4,
             % System-wide OpenBLAS, avoid direct calls to BLAS functions (very inefficient)
             blaslinks = {'-lopenblas'};
-            blasflags = {'-D_SYSTEM_OPENBLAS_BUILD_','-D_USE_OPENBLAS_THREAD_CONTROL','-D_NO_BLAS_CALLS'};
+            blasflags = {'-D_SYSTEM_OPENBLAS_BUILD_','-D_NO_BLAS_CALLS'};
+        case 5,
+            % Use Intel MKL
+            mklroot = '/opt/intel/oneapi/mkl/2025.0';
+            others = '/opt/intel/oneapi/redist/lib';
+            blaslinks = { sprintf('-L%s/lib',mklroot), sprintf('-L%s',others), sprintf('-Wl,-rpath=%s/lib',mklroot), sprintf('-Wl,-rpath=%s',others), ...
+                '-lmkl_intel_lp64', '-lmkl_intel_thread', '-lmkl_core', '-liomp5', '-lpthread', '-lm', '-ldl' };
+            blasflags = {'-D_MKL_BLAS_BUILD_','-D_USE_MKL_THREAD_CONTROL', '-m64', '-Wl,--no-as-needed', sprintf('-I"%s/include"',mklroot),  };
         otherwise,
             error('Unable to determine the BLAS implementation to use');
     end
@@ -459,8 +465,10 @@ switch(lower(lines{1}))
         BLAS_MODE = 2;
     case 'openblas-local'
         BLAS_MODE = 3;
+    case 'mkl'
+        BLAS_MODE = 5;
     otherwise
-        error(sprintf('Unable to parse option <%s> in %s. Choose one of [ netlib | openblas | openblas-local ] or delete the config file to use defaults',str,config));
+        error(sprintf('Unable to parse option <%s> in config.octave. Choose one of [ netlib | openblas | openblas-local ] or delete the config file to use defaults',lines{1}));
 end
 end
 
