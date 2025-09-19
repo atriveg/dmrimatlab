@@ -1,4 +1,10 @@
-Almost all mex functions to be compiled rely in some way on matrix manipulations and linear albegra, so that a proper implementation for them is crucial. This is solved by systematically calling BLAS/LAPACK routines. As opposed to Matlab, GNU Linux's Octave does not embed itself a particular implementation of BLAS, but instead it depends on that provided by the system (typically, Netlib's BLAS/LAPACK through arpack). For this reason, dmrimatlab offers several options for the mex code to be compiled against. You can choose the one that best fits your needs by creating a file named 'config.octave' in this same subfolder ('mexcode'). The first line of this file must be a keyword telling the build script which BLAS implementation it should use, one of:
+BUILDING THE MEX FILES OF THE TOOLBOX WITH LINKS TO BLAS AND LAPACK
+
+Almost all mex functions to be compiled rely in some way on matrix manipulations and linear albegra, so that a proper implementation for them is crucial. This is solved by systematically calling BLAS/LAPACK routines. As opposed to Matlab, GNU Linux's Octave does not embed itself a particular implementation of BLAS, but instead it depends on that provided by the system (typically, Netlib's BLAS/LAPACK through arpack). For this reason, dmrimatlab offers several options for the mex code to be linked against. You can choose the one that best fits your needs by creating a file named 'config.octave' in this same subfolder ('mexcode'). This file will be created from scratch the first time 'makefile_mexcode' is called. It should include variables definition like:
+
+BLAS_CONFIG=openblas-local
+
+(or BLAS_CONFIG=netlib, BLAS_CONFIG=openblas or BLAS_CONFIG=mkl, see description below) to tell the actual version of BLAS to be used, one of:
 
 [netlib] So that the system-provided implementation (Netlib's BLAS/LAPACK) will be used. NOTE: in this case you will have to manually install the C interfaces to BLAS/LAPACK, i.e. use your preferred software manager (pacman, apt, ...) to install:
    - cblas, which will provide /usr/include/cbas.h and /usr/lib/libcblas.so (or alike).
@@ -7,8 +13,17 @@ Note that Netlib's implementations are not the reference ones, since they are bo
 
 [openblas] So that a system-wide implementation of OpenBLAS will be used. NOTE: in this case you will have to manually install the "openblas" package with your preferred software manager (pacman, apt, ...). It will provide:
    - /usr/include/openblas/cblas.h, /usr/include/openblas/lapacke.h, /usr/lib/libopenblas.so(or alike).
-OpenBLAS is more efficient that Netlib's implementation. Besides, it has multi-threading capabilities. Unfortunately, this is a problem for our mex code, which is also multi-threaded. If OpenBLAS is used as-it-is, this will cause that our mex file's threads create each new BLAS' threads that will compete with each other, dramatically decreasing the overall performance. Though modern OpenBLAS implementations provide a "blas_set_num_threads()" function, this does not seem reliable, so that the only fix we have found for the software to properly work is running Octave as:
+OpenBLAS is more efficient that Netlib's implementation. Besides, it has multi-threading capabilities. Unfortunately, this is a problem for our mex code, which is also multi-threaded. Though our code prevents this situation by calling "blas_set_num_threads()" as needed, problems can still arise in certain systems with a large number of cores. They can be fixed by running Octave as:
    >> OMP_NUM_THREADS=1 octave
 so that OpenBLAS will always run single-thread. Note, however, that any other Octave-related software using Open MP will also run single-thread with this fix, which might impact its performance.
 
-[openblas-local] This will automatically download the source code and compile a local OpenBLAS library without Open MP, so that it will be single-threaded in nature, without conflicting with any other existing libraries. This is the safest and best performing option; besides, it does not require manually installing any additional software. However, it is slightly more complex since it has to compile OpenBLAS (and it will take some more time); note that you will need gcc, g++ and gfortran. This is the default option and, if it is used, the second line of 'config.octave' may be a keyword with the suffix appended to the name of the library.
+[openblas-local] This will automatically download the source code and compile a local OpenBLAS library without Open MP, so that it will be single-threaded in nature, without conflicting with any other existing libraries. This is the safest option; besides, it does not require manually installing any additional software. However, it is slightly more complex since it has to compile OpenBLAS (and it will take some more time); note that you will need gcc, g++ and gfortran. This is the default option. If used, you can set a variable in the config file:
+
+LOCAL_OPENBLAS_SUFFIX=suffix
+
+and 'suffix' will be appended to the name of the local library (and the name of the local folder where it is built).
+
+[mkl] In case you are using a x86_64 based processor, the by-far more efficient BLAS implementation is Intel's Oneapi MKL. Using this option is the only way to attain a similar performance as in the Matlab version of the toolbox. Note this requires using your preferred software manager (pacman, apt, ...) to install the package intel-oneapi-mkl (or alike). The installation root for this package will be something like "/opt/intel/oneapi/mkl/2025.0
+", where you should be able to find folders named "lib" and "include". This path must be provided in the config file by setting the variable:
+
+MKL_ROOT=/opt/intel/oneapi/mkl/2025.0

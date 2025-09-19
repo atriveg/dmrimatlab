@@ -91,16 +91,16 @@ if(isunix)
             blaslinks = { sprintf('-lopenblas_%s',suffix), sprintf('-L%s/openblas-%s/lib',path0,suffix), sprintf('-Wl,-rpath=%s/openblas-%s/lib',path0,suffix) };
             blasflags = {'-D_LOCAL_OPENBLAS_BUILD_', sprintf('-I %s/openblas-%s/include',path0,suffix) };
         case 4,
+            % Use Intel MKL
+            mklroot = get_MKL_root(path0);
+            redist  = sprintf('%s/../../redist/lib',mklroot);
+            blaslinks = { sprintf('-L%s/lib',mklroot), sprintf('-L%s',redist), sprintf('-Wl,-rpath=%s/lib',mklroot), sprintf('-Wl,-rpath=%s',redist), ...
+                '-lmkl_intel_lp64', '-lmkl_intel_thread', '-lmkl_core', '-liomp5', '-lpthread', '-lm', '-ldl' };
+            blasflags = {'-D_MKL_BLAS_BUILD_','-D_USE_MKL_THREAD_CONTROL', '-m64', '-Wl,--no-as-needed', sprintf('-I"%s/include"',mklroot),  };
+        case 5,
             % System-wide OpenBLAS, avoid direct calls to BLAS functions (very inefficient)
             blaslinks = {'-lopenblas'};
             blasflags = {'-D_SYSTEM_OPENBLAS_BUILD_','-D_NO_BLAS_CALLS'};
-        case 5,
-            % Use Intel MKL
-            mklroot = '/opt/intel/oneapi/mkl/2025.0';
-            others = '/opt/intel/oneapi/redist/lib';
-            blaslinks = { sprintf('-L%s/lib',mklroot), sprintf('-L%s',others), sprintf('-Wl,-rpath=%s/lib',mklroot), sprintf('-Wl,-rpath=%s',others), ...
-                '-lmkl_intel_lp64', '-lmkl_intel_thread', '-lmkl_core', '-liomp5', '-lpthread', '-lm', '-ldl' };
-            blasflags = {'-D_MKL_BLAS_BUILD_','-D_USE_MKL_THREAD_CONTROL', '-m64', '-Wl,--no-as-needed', sprintf('-I"%s/include"',mklroot),  };
         otherwise,
             error('Unable to determine the BLAS implementation to use');
     end
@@ -374,6 +374,7 @@ end
 cd(oldpath);
 end
 
+% =================================================================================================================
 function missing_my_mex_module(module)
 totest = fullfile(module.dest,[module.name,'.',mexext]);
 if(~exist(totest,'file'))
@@ -381,6 +382,7 @@ if(~exist(totest,'file'))
 end
 end
 
+% =================================================================================================================
 function clean_my_mex_module(module)
 todelete = fullfile(module.dest,[module.name,'.',mexext]);
 if(exist(todelete,'file'))
@@ -391,6 +393,7 @@ else
 end
 end
 
+% =================================================================================================================
 function build_my_mex_module(module)
 cwd = pwd;
 cd(module.src);
@@ -416,7 +419,7 @@ cd(cwd);
 clear(module.name);
 end
 
-
+% =================================================================================================================
 function suffix = check_local_openblas_available(path0,opts)
 suffix    = get_BLAS_suffix(path0);
 available = true;
@@ -452,13 +455,12 @@ end
 
 end
 
+% =================================================================================================================
 function BLAS_MODE = get_BLAS_mode(path0)
 lines = get_BLAS_config(path0);
-if(length(lines)<1)
-    BLAS_MODE = 3;
-    return;
-end
-switch(lower(lines{1}))
+switch(lower(lines.BLAS_CONFIG))
+    case ''
+        BLAS_MODE = 1;
     case 'netlib'
         BLAS_MODE = 1;
     case 'openblas'
@@ -466,58 +468,86 @@ switch(lower(lines{1}))
     case 'openblas-local'
         BLAS_MODE = 3;
     case 'mkl'
-        BLAS_MODE = 5;
+        BLAS_MODE = 4;
     otherwise
-        error(sprintf('Unable to parse option <%s> in config.octave. Choose one of [ netlib | openblas | openblas-local ] or delete the config file to use defaults',lines{1}));
+        error(sprintf('Unable to parse option <%s> in config.octave. Choose one of [ netlib | openblas | openblas-local | mkl ] or delete the config file to use defaults',lines.BLAS_CONFIG));
 end
 end
 
+% =================================================================================================================
 function suffix = get_BLAS_suffix(path0)
+% --------
 lines = get_BLAS_config(path0);
-if(length(lines)<2)
+if(isempty(lines.LOCAL_OPENBLAS_SUFFIX))
     suffix = 'local';
 else
-    suffix = lines{2};
+    suffix = lines.LOCAL_OPENBLAS_SUFFIX;
 end
+% --------
 end
 
+% =================================================================================================================
+function root = get_MKL_root(path0)
+    lines = get_BLAS_config(path0);
+    if(isempty(lines.MKL_ROOT))
+        error('Cannot find the install root of intel-oneapi-mkl. Please provide it in the config.octave file');
+    else
+        root = lines.MKL_ROOT;
+    end
+end
+
+% =================================================================================================================
 function lines = get_BLAS_config(path0)
+% --------
 config = sprintf('%s/config.octave',path0);
+% --------
 if( exist(config,'file')~=2 )
     warning(sprintf('Unable to open config file ''%s'' for reading. Creating it now with default options',config));
     fid = fopen(config,'w');
-    fprintf(fid,'openblas-local\n');
-    fprintf(fid,'local\n');
+    fprintf(fid,'# This is an automatically generated config file with default values\n');
+    fprintf(fid,'BLAS_CONFIG=openblas-local\n');
+    fprintf(fid,'LOCAL_OPENBLAS_SUFFIX=local\n');
+    fprintf(fid,'#MKL_ROOT=/path/to/intel-oneapi-mkl\n');
     fclose(fid);
 end
+% --------
+lines.BLAS_CONFIG = '';
+lines.LOCAL_OPENBLAS_SUFFIX = '';
+lines.MKL_ROOT = '';
+% --------
 fid = fopen(config,'r');
 str = fgetl(fid);
-lns = 0;
 while(str~=-1)
-    lns = lns+1;
-    lines{lns} = str;
+    % ------------------------------------
+    str = strtrim(str);
+    % ------------------------------------
+    if(~isempty(str))
+        if( (str(1)~='#') && (str(1)~='%') )
+            % ------------------------------
+            idx = strfind(str,'=');
+            if(length(idx)~=1)
+                fclose(fid);
+                error( sprintf('Bad line in config file: <%s>. Must be PROPERTY=value',str) );
+            end
+            if(idx==1)
+                fclose(fid);
+                error( sprintf('Bad line in config file: <%s>. Must be PROPERTY=value',str) );
+            end
+            if(idx==length(str))
+                fclose(fid);
+                error( sprintf('Bad line in config file: <%s>. Must be PROPERTY=value',str) );
+            end
+            % ------------------------------
+            property = strtrim(str(1:idx-1));
+            value    = strtrim(str(idx+1:end));
+            % ------------------------------
+            lines.(property) = value;
+            % ------------------------------
+        end
+    end
+    % ------------------------------------
     str = fgetl(fid);
+    % ------------------------------------
 end
 fclose(fid);
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

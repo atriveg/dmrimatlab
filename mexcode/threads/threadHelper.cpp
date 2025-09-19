@@ -63,7 +63,11 @@ unsigned int blas_num_threads(const unsigned int nth)
 unsigned int blas_num_threads_thread(const unsigned int nth)
 {
 #ifdef OCTAVE_BUILD
+#ifdef _MKL_BLAS_BUILD_
+    return blas_num_threads(nth);
+#else
     return 1;
+#endif
 #else
     return blas_num_threads(nth);
 #endif

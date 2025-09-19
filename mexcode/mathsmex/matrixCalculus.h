@@ -13,49 +13,51 @@
 #include "mexToMathsTypes.h"
 
 #ifdef OCTAVE_BUILD
-
-    #ifdef _SYSTEM_OPENBLAS_BUILD_
+    #if defined(_SYSTEM_BLAS_BUILD_)
+        #include "cblas.h"
+        #include "lapack.h"
+    #elif defined(_SYSTEM_OPENBLAS_BUILD_)
         #include "openblas/cblas.h"
         #include "openblas/lapacke.h"
         #ifndef _USE_OPENBLAS_THREAD_CONTROL
             #define _USE_OPENBLAS_THREAD_CONTROL
         #endif
+    #elif defined(_LOCAL_OPENBLAS_BUILD_)
+        #include "cblas.h"
+        #include "lapack.h"
+    #elif defined(_MKL_BLAS_BUILD_)
+        #include "mkl_blas.h"
+        #include "mkl_lapack.h"
     #else
-        #ifdef _LOCAL_OPENBLAS_BUILD_
-            #include "cblas.h"
-            #include "lapack.h"
-        #else
-            #ifdef _SYSTEM_BLAS_BUILD_
-                #include "cblas.h"
-                #include "lapack.h"
-            #else
-                #error "No BLAS implementation was provided"
-            #endif
-        #endif
+        #error "Unknown BLAS implementation"
     #endif
-
-    #define BLAS_RASTER CblasColMajor
-
 #else
-
     #include "blas.h"
     #include "lapack.h"
-
 #endif
 
 #include <string.h>
 
 #ifdef OCTAVE_BUILD
-    #ifdef _SYSTEM_BLAS_BUILD_
+    #if defined(_SYSTEM_BLAS_BUILD_)
         typedef CBLAS_INT BLAS_INT;
         #define LAPACKCALLFCN(FUNC) FUNC##_
         #define BLASCALLFCN(FUNC) cblas_##FUNC
-    #else
+    #elif defined(_SYSTEM_OPENBLAS_BUILD_)
         typedef blasint BLAS_INT;
         #define LAPACKCALLFCN(FUNC) FUNC##_
         #define BLASCALLFCN(FUNC) cblas_##FUNC
+    #elif defined(_LOCAL_OPENBLAS_BUILD_)
+        typedef blasint BLAS_INT;
+        #define LAPACKCALLFCN(FUNC) FUNC##_
+        #define BLASCALLFCN(FUNC) cblas_##FUNC
+    #elif defined(_MKL_BLAS_BUILD_)
+        typedef MKL_INT BLAS_INT;
+        #define LAPACKCALLFCN(FUNC) FUNC
+        #define BLASCALLFCN(FUNC) FUNC
+    #else
+        #error "Unknown BLAS implementation"
     #endif
-
 #else
     typedef ptrdiff_t BLAS_INT;
     #define LAPACKCALLFCN(FUNC) FUNC

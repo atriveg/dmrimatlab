@@ -46,7 +46,7 @@ namespace mataux
 #ifdef _NO_BLAS_CALLS
                 for( unsigned long pos=0; pos<M*N; ++pos ){ in[pos]*=op_; }
 #else
-#ifdef OCTAVE_BUILD
+#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
                 BLASCALLFCN(dscal)( N_, op_, in, inc_ );
 #else
                 BLASCALLFCN(dscal)( &N_, &op_, in, &inc_ );
@@ -58,7 +58,7 @@ namespace mataux
 #ifdef _NO_BLAS_CALLS
                 for( unsigned long pos=0; pos<M*N; ++pos ){ in[pos]*=op_; }
 #else
-#ifdef OCTAVE_BUILD
+#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
                 BLASCALLFCN(dscal)( N_, op_, in, inc_ );
 #else
                 BLASCALLFCN(dscal)( &N_, &op_, in, &inc_ );
@@ -108,7 +108,7 @@ namespace mataux
         BLAS_INT P_ = (BLAS_INT)P;
         ElementType alpha = 1.0f;
         ElementType beta  = 0.0f;
-#ifdef OCTAVE_BUILD
+#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
         BLASCALLFCN(dgemm)(
             CblasColMajor, CblasNoTrans, CblasNoTrans,
             M_, P_, N_,
@@ -185,7 +185,7 @@ namespace mataux
         ElementType alpha = 1.0f;
         ElementType beta  = 0.0f;
 
-#ifdef OCTAVE_BUILD
+#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
         BLASCALLFCN(dgemm)(
             CblasColMajor, CblasNoTrans, CblasTrans,
             M_, P_, N_,
@@ -253,7 +253,7 @@ namespace mataux
         ElementType alpha = 1.0f;
         ElementType beta  = 0.0f;
 
-#ifdef OCTAVE_BUILD
+#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
         BLASCALLFCN(dsyrk)(
             CblasColMajor, CblasUpper, CblasTrans,
             N_, M_,
@@ -585,7 +585,7 @@ namespace mataux
 #else
         BLAS_INT M_    = (BLAS_INT)M;
         BLAS_INT unit_ = 1;
-#ifdef OCTAVE_BUILD
+#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
         norm = BLASCALLFCN(ddot)( M_, in, unit_, in, unit_ );
 #else
         norm = BLASCALLFCN(ddot)( &M_, in, &unit_, in, &unit_ );
