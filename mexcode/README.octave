@@ -23,7 +23,6 @@ LOCAL_OPENBLAS_SUFFIX=suffix
 
 and 'suffix' will be appended to the name of the local library (and the name of the local folder where it is built).
 
-[mkl] In case you are using a x86_64 based processor, the by-far more efficient BLAS implementation is Intel's Oneapi MKL. Using this option is the only way to attain a similar performance as in the Matlab version of the toolbox. Note this requires using your preferred software manager (pacman, apt, ...) to install the package intel-oneapi-mkl (or alike). The installation root for this package will be something like "/opt/intel/oneapi/mkl/2025.0
-", where you should be able to find folders named "lib" and "include". This path must be provided in the config file by setting the variable:
+[mkl] In case you are using a x86_64 based processor, the by-far more efficient BLAS implementation is Intel's Oneapi MKL. Using this option is the only way to attain a similar performance as in the Matlab version of the toolbox. Note this requires using your preferred software manager (pacman, apt, ...) to install the package intel-oneapi-mkl (or alike). The installation root for this package will be something like "/opt/intel/oneapi/mkl/2025.0", where you should be able to find folders named "lib" and "include". This path must be provided in the config file by setting the variable:
 
 MKL_ROOT=/opt/intel/oneapi/mkl/2025.0
