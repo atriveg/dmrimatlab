@@ -1,4 +1,4 @@
-# dmrimatlab
+# DMRIMatlab
 This is a complete and self-contained toolbox for basic-to-advanced diffusion MRI reconstruction, processing, and representation (see complete description in: http://www.lpi.tel.uva.es/dmrilab). It works with both Matlab (multi-platform) and Octave (Linux, by now).
 
 It includes:
@@ -61,7 +61,11 @@ In Octave:
         >> makefile_mexcode
 
     which will build all the necessary mex files within the toolbox [FOR OCTAVE BUILDS, PLEASE CHECK THE README.octave FILE IN THE 'mexcode' SUBFOLDER].
-7. Open/run some of the demo files in the "examples" folder to get started. The .mlx files will work in Matlab, while the .ipynb are Octave's demos [IN OCTAVE YOU WILL ADDITIONALLY NEED JupyterLab WITH THE KERNEL FOR OCTAVE].
+7. Open/run some of the demo files from the launch menu by typing:
+
+        >> dmrimatlab_demo
+
+    In Matlab, .mlx notebook files are used. In Octave, they are .ipynb noteboks [IN OCTAVE YOU WILL ADDITIONALLY NEED JupyterLab WITH THE KERNEL FOR OCTAVE].
 
 ## Additional software required
 
@@ -84,6 +88,6 @@ NOTE: in some platforms it is likely that you get a compile error when trying to
 
 Finally, Octave's demos are written as Jupyter notebooks, so that you will need JupyterLab and Jupyter's kernel for Octave to run them. NOTE: since JupyterLab uses by default the octave-cli program, it is very convenient that you run it like this:
 
-        >> OCTAVE_EXECUTABLE=/usr/bin/octave jupyter-lab
+        $ OCTAVE_EXECUTABLE=/usr/bin/octave jupyter-lab
 
-so that it actually uses the full-featured Octave program and you can enjoy Qt-based graphics instead of the more limited gnuplot.
+so that it actually uses the full-featured Octave program and you can enjoy Qt-based graphics instead of the more limited gnuplot (this will be automatically done for you in case you run the demos from the launch menu by using the dmrimatlab_demo command).
