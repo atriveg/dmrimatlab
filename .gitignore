@@ -112,3 +112,4 @@ examples/octave-workspace (conflicted copy 2025-09-19 105347)
 octave-workspace
 examples/.ipynb_checkpoints/tour_00index-checkpoint.ipynb
 examples/.ipynb_checkpoints/tour_04fwvf-checkpoint.ipynb
+examples/config.octave

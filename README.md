@@ -67,6 +67,22 @@ In Octave:
 
     In Matlab, .mlx notebook files are used. In Octave, they are .ipynb noteboks [IN OCTAVE YOU WILL ADDITIONALLY NEED JupyterLab WITH THE KERNEL FOR OCTAVE].
 
+## A note on Octave's computational performance
+
+Unlike Matlab, GNU Octave does not pack any particular implementations of BLAS/LAPACK, but instead it uses those provided by the system (usually Netlib's libblas and liblapack through arpack). Note this may dramatically decrease its computational performance compared to Matlab. To avoid this issue, you may install OpenBLAS or, even better for compatible hardware, Intel's MKL and force octave to use them by doing something like:
+
+        $ LD_PRELOAD="/usr/lib/libopenblas.so:${LD_PRELOAD}" octave
+
+or:
+
+        $ LD_PRELOAD="/opt/intel/mkl/lib/intel64/libmkl_rt.so:${LD_PRELOAD}" octave
+
+You may even write your own wrapper for GNU Octave, something like:
+
+        /usr/bin/octave-mkl:
+                #!/bin/bash
+                LD_PRELOAD="/opt/intel/mkl/lib/intel64/libmkl_rt.so:${LD_PRELOAD}" /usr/bin/octave "$@"
+
 ## Additional software required
 
 The toolbox is designed to be self-contained, so that core methods do not rely in any external software not directly provided. It does not depend either on any particular Matlab's or Octave's toolbox/package. Note, however, that developer tools (GCC suite or alike) are required to compile the mex functions of the toolbox. Depending on your system configuration, in Octave builds this might imply the need of installing certain packages (mainly: cblas, lapacke, openblas or others, see the README.octave file in the 'mexcode' subfolder).
