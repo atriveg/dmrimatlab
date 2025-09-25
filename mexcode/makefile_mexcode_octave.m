@@ -69,12 +69,11 @@ end
 % ------------------------------------------------------------------------------
 path0       = mfilename('fullpath');
 [path0,~,~] = fileparts(path0);
-
-BLAS_MODE = get_BLAS_mode(path0);
+BLAS_MODE   = get_BLAS_mode(path0);
 
 if(isunix)
     setenv( 'CPPFLAGS', '-DOCTAVE_BUILD' );
-    setenv( 'CXXFLAGS', '-DMX_COMPAT_64  -D_GNU_SOURCE -fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -DNDEBUG' );
+    setenv( 'CXXFLAGS', get_GCC_flags(path0) );
     trlinks   = {'-lpthread'};
     switch(BLAS_MODE)
         case 1,
@@ -93,8 +92,8 @@ if(isunix)
         case 4,
             % Use Intel MKL
             mklroot = get_MKL_root(path0);
-            redist  = sprintf('%s/../../redist/lib',mklroot);
-            blaslinks = { sprintf('-L%s/lib',mklroot), sprintf('-L%s',redist), sprintf('-Wl,-rpath=%s/lib',mklroot), sprintf('-Wl,-rpath=%s',redist), ...
+            redist  = get_MKL_redist(path0);
+            blaslinks = { sprintf('-L%s/lib/intel64',mklroot), sprintf('-L%s',redist), sprintf('-Wl,-rpath=%s/lib/intel64',mklroot), sprintf('-Wl,-rpath=%s',redist), ...
                 '-lmkl_intel_lp64', '-lmkl_intel_thread', '-lmkl_core', '-liomp5', '-lpthread', '-lm', '-ldl' };
             blasflags = {'-D_MKL_BLAS_BUILD_','-D_USE_MKL_THREAD_CONTROL', '-m64', '-Wl,--no-as-needed', sprintf('-I"%s/include"',mklroot),  };
         case 5,
@@ -420,39 +419,9 @@ clear(module.name);
 end
 
 % =================================================================================================================
-function suffix = check_local_openblas_available(path0,opts)
-suffix    = get_BLAS_suffix(path0);
-available = true;
-available = available && (   exist( sprintf('%s/openblas-%s/lib/libopenblas_%s.so',path0,suffix,suffix), 'file' )   ~=   0   );
-available = available && (   exist( sprintf('%s/openblas-%s/include/cblas.h',path0,suffix), 'file' )   ~=   0   );
-available = available && (   exist( sprintf('%s/openblas-%s/include/lapacke.h',path0,suffix), 'file' )   ~=   0   );
-
-if(~available)
-    clc;
-    fprintf(1,'The build option you have chosen via config.octave means\n');
-    fprintf(1,'that the mex files will be linked against a local, non-\n');
-    fprintf(1,'threaded version of OpenBLAS. However, this local version is\n');
-    fprintf(1,'not available. I will try now to download, compile, and locally\n');
-    fprintf(1,'install it for you. This process should be transparent for you,\n');
-    fprintf(1,'but it might take a while. Please make sure you have the\n');
-    fprintf(1,'following software installed:\n');
-    fprintf(1,'   - git \n');
-    fprintf(1,'   - gcc and g++ \n');
-    fprintf(1,'   - gfortan or alike\n');
-    fprintf(1,'In case this fails, please set some other value of BLAS_MODE\n');
-    fprintf(1,'and try again (help makefile_mexcode_octave for details)\n\n');
-    fprintf(1,'[PRESS ENTER to go ahead]\n');
-    pause;
-    status = system ( sprintf('bash %s/build_local_openblas.sh %s %s',path0,opts,suffix) );
-    if(status==0)
-        fprintf('\nSUCCEEDED!!!\n');
-    else
-        fprintf('\nFAILED\n');
-    end
-    fprintf(1,'[PRESS ENTER to go ahead]\n');
-    pause;
-end
-
+function flags = get_GCC_flags(path0)
+lines = get_BLAS_config(path0);
+flags = lines.GCC_FLAGS;
 end
 
 % =================================================================================================================
@@ -494,6 +463,22 @@ function root = get_MKL_root(path0)
     else
         root = lines.MKL_ROOT;
     end
+    if(exist(root,'dir')~=7)
+        warning(sprintf('MKL root directory <%s> doesn''t seem to exist. Please check your config file\n',root));
+    end
+end
+
+% =================================================================================================================
+function redist = get_MKL_redist(path0)
+    lines = get_BLAS_config(path0);
+    if(isempty(lines.MKL_REDIST))
+        error('Cannot find the redist folder of intel-oneapi-mkl. Please provide it in the config.octave file');
+    else
+        redist = lines.MKL_REDIST;
+    end
+    if(exist(redist,'dir')~=7)
+        warning(sprintf('MKL redist directory <%s> doesn''t seem to exist. Please check your config file\n',redist));
+    end
 end
 
 % =================================================================================================================
@@ -502,18 +487,14 @@ function lines = get_BLAS_config(path0)
 config = sprintf('%s/config.octave',path0);
 % --------
 if( exist(config,'file')~=2 )
-    warning(sprintf('Unable to open config file ''%s'' for reading. Creating it now with default options',config));
-    fid = fopen(config,'w');
-    fprintf(fid,'# This is an automatically generated config file with default values\n');
-    fprintf(fid,'BLAS_CONFIG=openblas-local\n');
-    fprintf(fid,'LOCAL_OPENBLAS_SUFFIX=local\n');
-    fprintf(fid,'#MKL_ROOT=/path/to/intel-oneapi-mkl\n');
-    fclose(fid);
+    create_default_config_ctave(config);
 end
 % --------
+lines.GCC_FLAGS = '';
 lines.BLAS_CONFIG = '';
 lines.LOCAL_OPENBLAS_SUFFIX = '';
 lines.MKL_ROOT = '';
+lines.MKL_REDIST = '';
 % --------
 fid = fopen(config,'r');
 str = fgetl(fid);
@@ -527,15 +508,15 @@ while(str~=-1)
             idx = strfind(str,'=');
             if(length(idx)~=1)
                 fclose(fid);
-                error( sprintf('Bad line in config file: <%s>. Must be PROPERTY=value',str) );
+                error( sprintf('Wrong line in config file: <%s>. Must be PROPERTY=value',str) );
             end
             if(idx==1)
                 fclose(fid);
-                error( sprintf('Bad line in config file: <%s>. Must be PROPERTY=value',str) );
+                error( sprintf('Wrong line in config file: <%s>. Must be PROPERTY=value',str) );
             end
             if(idx==length(str))
                 fclose(fid);
-                error( sprintf('Bad line in config file: <%s>. Must be PROPERTY=value',str) );
+                error( sprintf('Wrong line in config file: <%s>. Must be PROPERTY=value',str) );
             end
             % ------------------------------
             property = strtrim(str(1:idx-1));
@@ -550,4 +531,62 @@ while(str~=-1)
     % ------------------------------------
 end
 fclose(fid);
+end
+
+% =================================================================================================================
+function create_default_config_ctave(config)
+warning(sprintf('Unable to open config file ''%s'' for reading. Creating it now with default options',config));
+fid = fopen(config,'w');
+if(fid==-1)
+    error(sprintf('Could not open <%s> for writing',config));
+end
+fprintf(fid,'# This is an automatically generated config file with default values\n');
+fprintf(fid,'## Custom optimization flags for gcc/g++:\n');
+fprintf(fid,'GCC_FLAGS=-DMX_COMPAT_64  -D_GNU_SOURCE -fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -DNDEBUG\n');
+fprintf(fid,'## Choose a BLAS implementation, one of netlib | openblas | openblas-local | mkl:\n');
+fprintf(fid,'BLAS_CONFIG=openblas-local\n');
+fprintf(fid,'## Only useful if openblas-local is chosen:\n');
+fprintf(fid,'LOCAL_OPENBLAS_SUFFIX=local\n');
+fprintf(fid,'## Only useful if mkl is chosen:\n');
+fprintf(fid,'### Intel''s MKL root, where bin, lib and include are:\n');
+fprintf(fid,'#MKL_ROOT=/opt/intel/mkl\n');
+fprintf(fid,'### Intel''s MKL redist folder, where libiomp5.so is:\n');
+fprintf(fid,'#MKL_REDIST=/opt/intel/oneapi/compiler/2025.0/lib\n');
+fclose(fid);
+end
+
+% =================================================================================================================
+function suffix = check_local_openblas_available(path0,opts)
+suffix    = get_BLAS_suffix(path0);
+available = true;
+available = available && (   exist( sprintf('%s/openblas-%s/lib/libopenblas_%s.so',path0,suffix,suffix), 'file' )   ~=   0   );
+available = available && (   exist( sprintf('%s/openblas-%s/include/cblas.h',path0,suffix), 'file' )   ~=   0   );
+available = available && (   exist( sprintf('%s/openblas-%s/include/lapacke.h',path0,suffix), 'file' )   ~=   0   );
+
+if(~available)
+    clc;
+    fprintf(1,'The build option you have chosen via config.octave means\n');
+    fprintf(1,'that the mex files will be linked against a local, non-\n');
+    fprintf(1,'threaded version of OpenBLAS. However, this local version is\n');
+    fprintf(1,'not available. I will try now to download, compile, and locally\n');
+    fprintf(1,'install it for you. This process should be transparent for you,\n');
+    fprintf(1,'but it might take a while. Please make sure you have the\n');
+    fprintf(1,'following software installed:\n');
+    fprintf(1,'   - git \n');
+    fprintf(1,'   - gcc and g++ \n');
+    fprintf(1,'   - gfortan or alike\n');
+    fprintf(1,'In case this fails, please set some other value of BLAS_MODE\n');
+    fprintf(1,'and try again (help makefile_mexcode_octave for details)\n\n');
+    fprintf(1,'[PRESS ENTER to go ahead]\n');
+    pause;
+    status = system ( sprintf('bash %s/build_local_openblas.sh %s %s',path0,opts,suffix) );
+    if(status==0)
+        fprintf('\nSUCCEEDED!!!\n');
+    else
+        fprintf('\nFAILED\n');
+    end
+    fprintf(1,'[PRESS ENTER to go ahead]\n');
+    pause;
+end
+
 end
