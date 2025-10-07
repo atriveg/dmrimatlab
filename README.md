@@ -85,14 +85,14 @@ You may even write your own wrapper for GNU Octave, something like:
 
 ## Additional software required
 
-The toolbox is designed to be self-contained, so that core methods do not rely in any external software not directly provided. It does not depend either on any particular Matlab's or Octave's toolbox/package. Note, however, that developer tools (GCC suite or alike) are required to compile the mex functions of the toolbox. Depending on your system configuration, in Octave builds this might imply the need of installing certain packages (mainly: cblas, lapacke, openblas or others, see the README.octave file in the 'mexcode' subfolder).
+The toolbox is designed to be self-contained, so that core methods do not rely in any external software not directly provided. It does not depend either on any particular Matlab's or Octave's toolbox/package. Note, however, that developer tools (GCC suite or alike) are required to compile the mex functions of the toolbox. Depending on your system configuration, in Octave builds this might imply the need of installing certain packages (mainly: cblas, lapacke, openblas or others, see the README.octave file in the 'mexcode' subfolder); in Debian and derived distributions, you will also need to install the octave-dev package with Octave's header files to be able to compile the mex files (this is not the case with Arch and derived, because Octave is downloaded and compiled from the AUR repo).
 
 Yet, test programs make use of certain specific functions from toolboxes/packages that you will need to install in case you want to actually run these tests. These are:
 
 - For Matlab: Optimization, Signal Processing, Statistics, and Symbolic Maths.
 - For Octave: gsl, optim, signal, statistics.
 
-NOTE: in some platforms it is likely that you get a compile error when trying to install the optim package. In this case you will have to:
+NOTE: in some platforms (Arch, Manjaro and alike) it is likely that you get a compile error when trying to install the optim package. In this case you will have to:
         1. Download the source code of the package, optim-1.6.2.tar.gz, from: https://gnu-octave.github.io/packages/optim/
         2. Untar and look for the file named: src/__max_nargin_optim__.cc
         3. Patch this file according to: https://sourceforge.net/p/octave/optim/ci/d8c28ab3f3f37d439bc2d961d79f4a8caa9830d1/ i.e. change:
