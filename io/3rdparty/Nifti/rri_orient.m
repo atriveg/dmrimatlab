@@ -25,7 +25,7 @@ function [nii, orient, pattern] = rri_orient(nii, varargin)
    
    dim = double(nii.hdr.dime.dim([2:4]));
 
-   if ~isempty(pattern) & ~isequal(length(pattern), prod(dim))
+   if ~isempty(pattern) && ~isequal(length(pattern), prod(dim))
       return;
    end
 
@@ -92,7 +92,7 @@ function [nii, orient, pattern] = rri_orient(nii, varargin)
    flip_orient = flip_orient(rot_orient);
 
    for i = 1:3
-      if flip_orient(i) & ~isequal(double(tmp(i)), 0)
+      if flip_orient(i) && ~isequal(double(tmp(i)), 0)
          tmp(i) = int16(double(new_dim(i)) - double(tmp(i)) + 1);
       end
    end

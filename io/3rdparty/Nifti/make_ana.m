@@ -63,24 +63,24 @@ function ana = make_ana(varargin)
          error('Datatype is not supported by make_ana.');
    end
 
-   if nargin > 1 & ~isempty(varargin{2})
+   if nargin > 1 && ~isempty(varargin{2})
       voxel_size(2:4) = double(varargin{2});
    end
 
-   if nargin > 2 & ~isempty(varargin{3})
+   if nargin > 2 && ~isempty(varargin{3})
       origin(1:3) = double(varargin{3});
    end
 
-   if nargin > 3 & ~isempty(varargin{4})
+   if nargin > 3 && ~isempty(varargin{4})
       datatype = double(varargin{4});
 
-      if datatype == 128 | datatype == 511
+      if datatype == 128 || datatype == 511
          dims(5) = [];
          dims = [dims 1];
       end
    end
 
-   if nargin > 4 & ~isempty(varargin{5})
+   if nargin > 4 && ~isempty(varargin{5})
       descrip = varargin{5};
    end
 

@@ -51,7 +51,7 @@
 function save_nii(nii, fileprefix, old_RGB)
    
    if ~exist('nii','var') || isempty(nii) || ~isfield(nii,'hdr') || ...
-	~isfield(nii,'img') | ~exist('fileprefix','var') | isempty(fileprefix)
+	~isfield(nii,'img') || ~exist('fileprefix','var') || isempty(fileprefix)
 
       error('Usage: save_nii(nii, filename, [old_RGB])');
    end

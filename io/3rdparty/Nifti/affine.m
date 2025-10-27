@@ -83,7 +83,7 @@
 %
 function [new_img, new_M] = affine(old_img, old_M, new_elem_size, verbose, bg, method)
 
-   if ~exist('old_img','var') | ~exist('old_M','var')
+   if ~exist('old_img','var') || ~exist('old_M','var')
       error('Usage: [new_img new_M] = affine(old_img, old_M, [new_elem_size], [verbose], [bg], [method]);');
    end
 
@@ -99,7 +99,7 @@ function [new_img, new_M] = affine(old_img, old_M, new_elem_size, verbose, bg, m
       error('old_img should be either 2D image or 3D volume.');
    end
 
-   if ~exist('new_elem_size','var') | isempty(new_elem_size)
+   if ~exist('new_elem_size','var') || isempty(new_elem_size)
       new_elem_size = [1 1 1];
    elseif length(new_elem_size) < 2
       new_elem_size = new_elem_size(1)*ones(1,3);
@@ -107,9 +107,9 @@ function [new_img, new_M] = affine(old_img, old_M, new_elem_size, verbose, bg, m
       new_elem_size = [new_elem_size(:); 1]';
    end
 
-   if ~exist('method','var') | isempty(method)
+   if ~exist('method','var') || isempty(method)
       method = 1;
-   elseif ~exist('bresenham_line3d.m','file') & method == 3
+   elseif ~exist('bresenham_line3d.m','file') && method == 3
       error([char(10) char(10) 'Please download 3D Bresenham''s line generation program from:' char(10) char(10) 'http://www.mathworks.com/matlabcentral/fileexchange/loadFile.do?objectId=21057' char(10) char(10) 'to test Fischer''s Bresenham interpolation method.' char(10) char(10)]);
    end
 
@@ -119,11 +119,11 @@ function [new_img, new_M] = affine(old_img, old_M, new_elem_size, verbose, bg, m
    old_img = double(old_img);
    old_dim = size(old_img);
 
-   if ~exist('bg','var') | isempty(bg)
+   if ~exist('bg','var') || isempty(bg)
       bg = mean([old_img(1) old_img(end)]);
    end
 
-   if ~exist('verbose','var') | isempty(verbose)
+   if ~exist('verbose','var') || isempty(verbose)
       verbose = 1;
    end
 
@@ -191,7 +191,7 @@ function [new_img, new_M] = affine(old_img, old_M, new_elem_size, verbose, bg, m
    %
    for z = 1:new_dim(3)
 
-      if verbose & ~mod(z,10)
+      if verbose && ~mod(z,10)
          fprintf('%.2f percent is done.\n', 100*z/new_dim(3));
       end
 
@@ -201,7 +201,7 @@ function [new_img, new_M] = affine(old_img, old_M, new_elem_size, verbose, bg, m
       %  The following equation works, because they all equal to XYZmm:
       %  new_R*(new_XYZvox-1) + new_T  ==  old_R*(old_XYZvox-1) + old_T
       %
-      %  We can use modified new_M1 & old_M1 to substitute new_M & old_M
+      %  We can use modified new_M1 && old_M1 to substitute new_M && old_M
       %      new_M1 * new_XYZvox       ==       old_M1 * old_XYZvox
       %
       %  where: M1 = M;   M1(:,4) = M(:,4) - sum(M(:,1:3),2);
@@ -216,7 +216,7 @@ function [new_img, new_M] = affine(old_img, old_M, new_elem_size, verbose, bg, m
       %  i.e. we find the mapping from new_XYZvox to old_XYZvox:
       %  M = old_M1 \ new_M1 * mask_Z;
       %
-      %  First, compute modified old_M1 & new_M1
+      %  First, compute modified old_M1 && new_M1
       %
       old_M1 = old_M;   old_M1(:,4) = old_M(:,4) - sum(old_M(:,1:3),2);
       new_M1 = new_M;   new_M1(:,4) = new_M(:,4) - sum(new_M(:,1:3),2);
@@ -297,9 +297,9 @@ function img_slice = trilinear(img, dim1, dim2, M, bg)
 
          %  within boundary of original image
          %
-         if (	old_X > 1-TINY & old_X < xdim2+TINY & ...
-		old_Y > 1-TINY & old_Y < ydim2+TINY & ...
-		old_Z > 1-TINY & old_Z < zdim2+TINY	)
+         if (	old_X > 1-TINY && old_X < xdim2+TINY && ...
+		old_Y > 1-TINY && old_Y < ydim2+TINY && ...
+		old_Z > 1-TINY && old_Z < zdim2+TINY	)
 
             %  Calculate distance of old_XYZ to its neighbors for
             %  weighted intensity average
@@ -454,9 +454,9 @@ function img_slice = nearest_neighbor(img, dim1, dim2, M, bg)
 
          %  within boundary of original image
          %
-         if (	xi >= 1 & xi <= xdim2 & ...
-		yi >= 1 & yi <= ydim2 & ...
-		zi >= 1 & zi <= zdim2	)
+         if (	xi >= 1 && xi <= xdim2 && ...
+		yi >= 1 && yi <= ydim2 && ...
+		zi >= 1 && zi <= zdim2	)
 
             img_slice(x,y) = img(xi,yi,zi);
 
@@ -526,9 +526,9 @@ function img_slice = bresenham(img, dim1, dim2, M, bg)
 
          %  within boundary of the old XYZ space
          %
-         if (	xi >= 1 & xi <= xdim2 & ...
-		yi >= 1 & yi <= ydim2 & ...
-		zi >= 1 & zi <= zdim2	)
+         if (	xi >= 1 && xi <= xdim2 && ...
+		yi >= 1 && yi <= ydim2 && ...
+		zi >= 1 && zi <= zdim2	)
 
             img_slice(x,y) = img(xi,yi,zi);
 

@@ -57,7 +57,7 @@ function init
    catch
    end
 
-   if ~isempty(rri_orient_pos) & strcmp(save_setting_status,'on')
+   if ~isempty(rri_orient_pos) && strcmp(save_setting_status,'on')
 
       pos = rri_orient_pos;
 

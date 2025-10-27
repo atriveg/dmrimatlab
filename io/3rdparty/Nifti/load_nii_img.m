@@ -353,7 +353,7 @@ function [img,hdr] = read_image(hdr,filetype,fileprefix,machine,img_idx,dim5_idx
 
    %  old_RGB treat RGB slice by slice, now it is treated voxel by voxel
    %
-   if old_RGB & hdr.dime.datatype == 128 && hdr.dime.bitpix == 24
+   if old_RGB && hdr.dime.datatype == 128 && hdr.dime.bitpix == 24
       % remove squeeze
       img = (reshape(img, [hdr.dime.dim(2:3) 3 hdr.dime.dim(4) length(img_idx) length(dim5_idx) length(dim6_idx) length(dim7_idx)]));
       img = permute(img, [1 2 4 3 5 6 7 8]);

@@ -12,10 +12,10 @@ function expand_nii_scan(filename, img_idx, newpath)
 
    %  Check file extension. If .gz, unpack it into temp folder
    %
-   if length(filename) > 2 & strcmp(filename(end-2:end), '.gz')
+   if length(filename) > 2 && strcmp(filename(end-2:end), '.gz')
 
-      if ~strcmp(filename(end-6:end), '.img.gz') & ...
-	 ~strcmp(filename(end-6:end), '.hdr.gz') & ...
+      if ~strcmp(filename(end-6:end), '.img.gz') && ...
+	 ~strcmp(filename(end-6:end), '.hdr.gz') && ...
 	 ~strcmp(filename(end-6:end), '.nii.gz')
 
          error('Please check filename.');
@@ -28,8 +28,8 @@ function expand_nii_scan(filename, img_idx, newpath)
       end
    end
 
-   if ~exist('newpath','var') | isempty(newpath), newpath = pwd; end
-   if ~exist('img_idx','var') | isempty(img_idx), img_idx = 1:get_nii_frame(filename); end
+   if ~exist('newpath','var') || isempty(newpath), newpath = pwd; end
+   if ~exist('img_idx','var') || isempty(img_idx), img_idx = 1:get_nii_frame(filename); end
 
    for i=img_idx
       nii_i = load_untouch_nii(filename, i);

@@ -42,7 +42,7 @@ function nii = pad_nii(nii, opt)
    dims = abs(nii.hdr.dime.dim(2:4));
    origin = abs(nii.hdr.hist.originator(1:3));
 
-   if isempty(origin) | all(origin == 0)		% according to SPM
+   if isempty(origin) || all(origin == 0)		% according to SPM
       origin = round((dims+1)/2);
    end
 
@@ -54,7 +54,7 @@ function nii = pad_nii(nii, opt)
    pad_from_S = 0;
    bg = 0;
 
-   if nargin > 1 & ~isempty(opt)
+   if nargin > 1 && ~isempty(opt)
       if ~isstruct(opt)
          error('option argument should be a struct');
       end
@@ -62,7 +62,7 @@ function nii = pad_nii(nii, opt)
       if isfield(opt,'pad_from_L')
          pad_from_L = round(opt.pad_from_L);
 
-         if pad_from_L >= origin(1) | pad_from_L < 0
+         if pad_from_L >= origin(1) || pad_from_L < 0
             error('pad_from_L cannot be negative');
          end
       end
@@ -70,7 +70,7 @@ function nii = pad_nii(nii, opt)
       if isfield(opt,'pad_from_P')
          pad_from_P = round(opt.pad_from_P);
 
-         if pad_from_P >= origin(2) | pad_from_P < 0
+         if pad_from_P >= origin(2) || pad_from_P < 0
             error('pad_from_P cannot be negative');
          end
       end
@@ -78,7 +78,7 @@ function nii = pad_nii(nii, opt)
       if isfield(opt,'pad_from_I')
          pad_from_I = round(opt.pad_from_I);
 
-         if pad_from_I >= origin(3) | pad_from_I < 0
+         if pad_from_I >= origin(3) || pad_from_I < 0
             error('pad_from_I cannot be negative');
          end
       end
@@ -86,7 +86,7 @@ function nii = pad_nii(nii, opt)
       if isfield(opt,'pad_from_R')
          pad_from_R = round(opt.pad_from_R);
 
-         if pad_from_R > dims(1)-origin(1) | pad_from_R < 0
+         if pad_from_R > dims(1)-origin(1) || pad_from_R < 0
             error('pad_from_R cannot be negative');
          end
       end
@@ -94,7 +94,7 @@ function nii = pad_nii(nii, opt)
       if isfield(opt,'pad_from_A')
          pad_from_A = round(opt.pad_from_A);
 
-         if pad_from_A > dims(2)-origin(2) | pad_from_A < 0
+         if pad_from_A > dims(2)-origin(2) || pad_from_A < 0
             error('pad_from_A cannot be negative');
          end
       end
@@ -102,7 +102,7 @@ function nii = pad_nii(nii, opt)
       if isfield(opt,'pad_from_S')
          pad_from_S = round(opt.pad_from_S);
 
-         if pad_from_S > dims(3)-origin(3) | pad_from_S < 0
+         if pad_from_S > dims(3)-origin(3) || pad_from_S < 0
             error('pad_from_S cannot be negative');
          end
       end

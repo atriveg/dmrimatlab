@@ -65,13 +65,13 @@ function nii = xform_nii(nii, tolerance, preferredForm)
    %
    nii.original.hdr = nii.hdr;
 
-   if ~exist('tolerance','var') | isempty(tolerance)
+   if ~exist('tolerance','var') || isempty(tolerance)
       tolerance = 0.1;
    elseif(tolerance<=0)
       tolerance = eps;
    end
 
-   if ~exist('preferredForm','var') | isempty(preferredForm)
+   if ~exist('preferredForm','var') || isempty(preferredForm)
       preferredForm= 's';				% Jeff
    end
 
@@ -79,9 +79,9 @@ function nii = xform_nii(nii, tolerance, preferredForm)
    %  dataset should be scaled as: y = scl_slope * x + scl_inter
    %  I bring it here because hdr will be modified by change_hdr.
    %
-   if nii.hdr.dime.scl_slope ~= 0 & ...
-	ismember(nii.hdr.dime.datatype, [2,4,8,16,64,256,512,768]) & ...
-	(nii.hdr.dime.scl_slope ~= 1 | nii.hdr.dime.scl_inter ~= 0)
+   if nii.hdr.dime.scl_slope ~= 0 && ...
+	ismember(nii.hdr.dime.datatype, [2,4,8,16,64,256,512,768]) && ...
+	(nii.hdr.dime.scl_slope ~= 1 || nii.hdr.dime.scl_inter ~= 0)
 
       nii.img = ...
 	nii.hdr.dime.scl_slope * double(nii.img) + nii.hdr.dime.scl_inter;
@@ -111,7 +111,7 @@ function nii = xform_nii(nii, tolerance, preferredForm)
    %  If datatype is a complex type, then the scaling is to be applied
    %  to both the real and imaginary parts.
    %
-   if nii.hdr.dime.scl_slope ~= 0 & ...
+   if nii.hdr.dime.scl_slope ~= 0 && ...
 	ismember(nii.hdr.dime.datatype, [32,1792])
 
       nii.img = ...
@@ -132,7 +132,7 @@ function nii = xform_nii(nii, tolerance, preferredForm)
 
    %  There is no need for this program to transform Analyze data
    %
-   if nii.filetype == 0 & exist([nii.fileprefix '.mat'],'file')
+   if nii.filetype == 0 && exist([nii.fileprefix '.mat'],'file')
       load([nii.fileprefix '.mat']);	% old SPM affine matrix
       R=M(1:3,1:3);
       T=M(1:3,4);
@@ -208,7 +208,7 @@ function nii = xform_nii(nii, tolerance, preferredForm)
       flip_orient = flip_orient(rot_orient);
 
       for i = 1:3
-         if flip_orient(i) & ~isequal(tmp(i), 0)
+         if flip_orient(i) && ~isequal(tmp(i), 0)
             tmp(i) = new_dim(i) - tmp(i) + 1;
          end
       end
@@ -223,8 +223,8 @@ function nii = xform_nii(nii, tolerance, preferredForm)
          pattern = permute(pattern, rot_orient);
          pattern = pattern(:);
 
-         if hdr.dime.datatype == 32 | hdr.dime.datatype == 1792 | ...
-		hdr.dime.datatype == 128 | hdr.dime.datatype == 511
+         if hdr.dime.datatype == 32 || hdr.dime.datatype == 1792 || ...
+		hdr.dime.datatype == 128 || hdr.dime.datatype == 511
 
             tmp = reshape(nii.img(:,:,:,1), [prod(new_dim) hdr.dime.dim(5:8)]);
             tmp = tmp(pattern, :);
@@ -234,7 +234,7 @@ function nii = xform_nii(nii, tolerance, preferredForm)
             tmp = tmp(pattern, :);
             nii.img(:,:,:,2) = reshape(tmp, [new_dim       hdr.dime.dim(5:8)]);
 
-            if hdr.dime.datatype == 128 | hdr.dime.datatype == 511
+            if hdr.dime.datatype == 128 || hdr.dime.datatype == 511
                tmp = reshape(nii.img(:,:,:,3), [prod(new_dim) hdr.dime.dim(5:8)]);
                tmp = tmp(pattern, :);
                nii.img(:,:,:,3) = reshape(tmp, [new_dim       hdr.dime.dim(5:8)]);
@@ -246,13 +246,13 @@ function nii = xform_nii(nii, tolerance, preferredForm)
             nii.img = reshape(nii.img, [new_dim       hdr.dime.dim(5:8)]);
          end
       else
-         if hdr.dime.datatype == 32 | hdr.dime.datatype == 1792 | ...
-		hdr.dime.datatype == 128 | hdr.dime.datatype == 511
+         if hdr.dime.datatype == 32 || hdr.dime.datatype == 1792 || ...
+		hdr.dime.datatype == 128 || hdr.dime.datatype == 511
 
             nii.img(:,:,:,1) = permute(nii.img(:,:,:,1), rot_orient);
             nii.img(:,:,:,2) = permute(nii.img(:,:,:,2), rot_orient);
 
-            if hdr.dime.datatype == 128 | hdr.dime.datatype == 511
+            if hdr.dime.datatype == 128 || hdr.dime.datatype == 511
                nii.img(:,:,:,3) = permute(nii.img(:,:,:,3), rot_orient);
             end
          else
@@ -324,13 +324,13 @@ function [hdr, orient] = change_hdr(hdr, tolerance, preferredForm)
            hdr.hist.srow_y(4)
            hdr.hist.srow_z(4)];
 
-      if det(R) == 0 | ~isequal(R(find(R)), sum(R)')
+      if det(R) == 0 || ~isequal(R(find(R)), sum(R)')
          hdr.hist.old_affine = [ [R;[0 0 0]] [T;1] ];
          R_sort = sort(abs(R(:)));
          R( find( abs(R) < tolerance*min(R_sort(end-2:end)) ) ) = 0;
          hdr.hist.new_affine = [ [R;[0 0 0]] [T;1] ];
 
-         if det(R) == 0 | ~isequal(R(find(R)), sum(R)')
+         if det(R) == 0 || ~isequal(R(find(R)), sum(R)')
             msg = [char(10) char(10) '   Non-orthogonal rotation or shearing '];
             msg = [msg 'found inside the affine matrix' char(10)];
             msg = [msg '   in this NIfTI file. You have 3 options:' char(10) char(10)];
@@ -391,7 +391,7 @@ function [hdr, orient] = change_hdr(hdr, tolerance, preferredForm)
       %
       %  This part is modified by Jeff Gunter.
       %
-      if det(R) == 0 | ~isequal(R(find(R)), sum(R)')
+      if det(R) == 0 || ~isequal(R(find(R)), sum(R)')
 
          %  det(R) == 0 is not a common trigger for this ---
          %  R(find(R)) is a list of non-zero elements in R; if that
@@ -405,7 +405,7 @@ function [hdr, orient] = change_hdr(hdr, tolerance, preferredForm)
          R = R * diag([i j k]);
          hdr.hist.new_affine = [ [R;[0 0 0]] [T;1] ];
 
-         if det(R) == 0 | ~isequal(R(find(R)), sum(R)')
+         if det(R) == 0 || ~isequal(R(find(R)), sum(R)')
             msg = [char(10) char(10) '   Non-orthogonal rotation or shearing '];
             msg = [msg 'found inside the affine matrix' char(10)];
             msg = [msg '   in this NIfTI file. You have 3 options:' char(10) char(10)];

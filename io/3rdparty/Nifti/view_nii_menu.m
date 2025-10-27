@@ -256,7 +256,7 @@ function img_info
    msg = [msg {''}];
 
    if isfield(nii_view.nii, 'fileprefix')
-      if isfield(nii_view.nii, 'filetype') & nii_view.nii.filetype == 2
+      if isfield(nii_view.nii, 'filetype') && nii_view.nii.filetype == 2
          msg = [msg {['File Name:  [', nii_view.nii.fileprefix, '.nii]']}];
          msg = [msg {''}];
       elseif isfield(nii_view.nii, 'filetype')
@@ -365,7 +365,7 @@ function editvox
 
    repeat = 1;
    while repeat
-      if nii_view.nii.hdr.dime.datatype == 128 | nii_view.nii.hdr.dime.datatype == 511
+      if nii_view.nii.hdr.dime.datatype == 128 || nii_view.nii.hdr.dime.datatype == 511
          init_val = inputdlg({'Replace the current voxel values with 3 new numbers:'}, ...
 		'Edit voxel value at crosshair', 1, {num2str(init_val)});
       else
@@ -380,10 +380,10 @@ function editvox
 
       imgvalue = str2num(init_val{1});
 
-      if ( (nii_view.nii.hdr.dime.datatype == 128 | nii_view.nii.hdr.dime.datatype == 511) ...
-		& length(imgvalue) ~= 3 ) | ...
-         ( (nii_view.nii.hdr.dime.datatype ~= 128 & nii_view.nii.hdr.dime.datatype ~= 511) ...
-		& length(imgvalue) ~= 1 )
+      if ( (nii_view.nii.hdr.dime.datatype == 128 || nii_view.nii.hdr.dime.datatype == 511) ...
+	 && length(imgvalue) ~= 3 ) || ...
+         ( (nii_view.nii.hdr.dime.datatype ~= 128 && nii_view.nii.hdr.dime.datatype ~= 511) ...
+	 && length(imgvalue) ~= 1 )
 	% do nothing
       else
          repeat = 0;
@@ -437,7 +437,7 @@ function save_disp
 
    [filename pathname] = uiputfile('*.*', 'Save displayed image as (*.nii or *.img)');
 
-   if isequal(filename,0) | isequal(pathname,0)
+   if isequal(filename,0) || isequal(pathname,0)
       return;
    else
       out_imgfile = fullfile(pathname, filename);	% original image file

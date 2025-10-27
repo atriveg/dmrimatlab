@@ -15,11 +15,11 @@ function [selected_file, selected_path] = rri_select_file(varargin)
 
 %  -- Created June 2001 by Wilkin Chau, Rotman Research Institute
 %
-%  use rri_select_file to open & save Matlab recognized format
+%  use rri_select_file to open && save Matlab recognized format
 %  -- Modified Dec 2002 by Jimmy Shen, Rotman Research Institute
 %
 
-   if nargin == 0 | ischar(varargin{1}) 	% create rri_select_file figure
+   if nargin == 0 || ischar(varargin{1}) 	% create rri_select_file figure
 
       dir_name = '';
       fig_title = 'Select a File';
@@ -51,7 +51,7 @@ function [selected_file, selected_path] = rri_select_file(varargin)
    action = varargin{1}{1};
 
    %  change 'File format':
-   %  update 'Files' & 'File selection' based on file pattern
+   %  update 'Files' && 'File selection' based on file pattern
    %
    if strcmp(action,'EditFilter'),
       EditFilter;
@@ -63,7 +63,7 @@ function [selected_file, selected_path] = rri_select_file(varargin)
 
    %  select 'Directories':
    %  go into the selected dir
-   %  update 'Files' & 'File selection' based on file pattern
+   %  update 'Files' && 'File selection' based on file pattern
    %
    elseif strcmp(action,'select_dir'),
       select_dir;
@@ -88,7 +88,7 @@ function [selected_file, selected_path] = rri_select_file(varargin)
       h = findobj(gcf,'Tag','SelectionEdit');
       [filepath,filename,fileext] = fileparts(get(h,'String'));
 
-      if isempty(filepath) | isempty(filename) | isempty(fileext)
+      if isempty(filepath) || isempty(filename) || isempty(fileext)
          setappdata(gcf,'SelectedDirectory',[]);
          setappdata(gcf,'SelectedFile',[]);
       else
@@ -167,7 +167,7 @@ function Init(fig_title,dir_name),
    catch
    end
 
-   if ~isempty(rri_select_file_pos) & strcmp(save_setting_status,'on')
+   if ~isempty(rri_select_file_pos) && strcmp(save_setting_status,'on')
 
       pos = rri_select_file_pos;
 
@@ -483,7 +483,7 @@ function update_dirlist;
 
 
 %  change 'File format':
-%  update 'Files' & 'File selection' based on file pattern
+%  update 'Files' && 'File selection' based on file pattern
 %
 % --------------------------------------------------------------------
 
@@ -515,7 +515,7 @@ function EditFilter()
 
 %  select 'Directories':
 %  go into the selected dir
-%  update 'Files' & 'File selection' based on file pattern
+%  update 'Files' && 'File selection' based on file pattern
 %
 % --------------------------------------------------------------------
 

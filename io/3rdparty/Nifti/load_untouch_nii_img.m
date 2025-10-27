@@ -411,7 +411,7 @@ function [img,hdr] = read_image(hdr,filetype,fileprefix,machine,img_idx,dim5_idx
    %  For complex float32 or complex float64, voxel values
    %  include [real, imag]
    %
-   if hdr.dime.datatype == 32 | hdr.dime.datatype == 1792
+   if hdr.dime.datatype == 32 || hdr.dime.datatype == 1792
       img = reshape(img, [2, length(img)/2]);
       img = complex(img(1,:)', img(2,:)');
    end

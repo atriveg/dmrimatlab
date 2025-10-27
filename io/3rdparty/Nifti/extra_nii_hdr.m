@@ -218,9 +218,9 @@ function hdr = extra_nii_hdr(hdr)
 
    %  Check NIFTI version
    %
-   if     ~isempty(hdr.hist.magic) & strcmp(hdr.hist.magic(1),'n') & ...
-	( strcmp(hdr.hist.magic(2),'i') | strcmp(hdr.hist.magic(2),'+') ) & ...
-	  str2num(hdr.hist.magic(3)) >= 1 & str2num(hdr.hist.magic(3)) <= 9
+   if     ~isempty(hdr.hist.magic) && strcmp(hdr.hist.magic(1),'n') && ...
+	( strcmp(hdr.hist.magic(2),'i') || strcmp(hdr.hist.magic(2),'+') ) && ...
+	  str2num(hdr.hist.magic(3)) >= 1 && str2num(hdr.hist.magic(3)) <= 9
 
       extra.NIFTI_VERSION = str2num(hdr.hist.magic(3));
    else
@@ -239,11 +239,11 @@ function hdr = extra_nii_hdr(hdr)
    %  Swap has been taken care of by checking whether sizeof_hdr is
    %  348 (machine is 'ieee-le' or 'ieee-be' etc)
    %
-   % extra.NIFTI_NEEDS_SWAP = (hdr.dime.dim(1) < 0 | hdr.dime.dim(1) > 7);
+   % extra.NIFTI_NEEDS_SWAP = (hdr.dime.dim(1) < 0 || hdr.dime.dim(1) > 7);
 
    %  Check NIFTI header struct contains a 5th (vector) dimension
    %
-   if hdr.dime.dim(1) > 4 & hdr.dime.dim(6) > 1
+   if hdr.dime.dim(1) > 4 && hdr.dime.dim(6) > 1
       extra.NIFTI_5TH_DIM = hdr.dime.dim(6);
    else
       extra.NIFTI_5TH_DIM = 0;

@@ -103,7 +103,7 @@ function nii = load_untouch_nii(filename, img_idx, dim5_idx, dim6_idx, dim7_idx,
 
    %  Check file extension. If .gz, unpack it into temp folder
    %
-   if length(filename) > 2 & strcmp(filename(end-2:end), '.gz')
+   if length(filename) > 2 && strcmp(filename(end-2:end), '.gz')
 
       if ~strcmp(filename(end-6:end), '.img.gz') && ...
 	 ~strcmp(filename(end-6:end), '.hdr.gz') && ...

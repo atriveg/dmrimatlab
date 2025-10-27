@@ -13,7 +13,7 @@
 %
 function save_untouch_nii(nii, filename)
    
-   if ~exist('nii','var') || isempty(nii) || ~isfield(nii,'hdr') | ...
+   if ~exist('nii','var') || isempty(nii) || ~isfield(nii,'hdr') || ...
 	~isfield(nii,'img') || ~exist('filename','var') || isempty(filename)
 
       error('Usage: save_untouch_nii(nii, filename)');
