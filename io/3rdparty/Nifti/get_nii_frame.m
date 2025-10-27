@@ -145,7 +145,7 @@ function [ total_scan ] = get_nii_frame(filename)
    %  Clean up after gunzip
    %
    if exist('gzFileName', 'var')
-      rmdir(tmpDir,'s');
+      nii_rmdir(tmpDir,'s');
    end
 
    return;					% get_nii_frame

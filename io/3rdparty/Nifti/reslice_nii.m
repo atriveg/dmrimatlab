@@ -215,7 +215,7 @@ function [nii] = load_nii_no_xform(filename, img_idx, old_RGB, preferredForm)
       %  fix fileprefix so it doesn't point to temp location
       %
       nii.fileprefix = gzFileName(1:end-7);
-      rmdir(tmpDir,'s');
+      nii_rmdir(tmpDir,'s');
    end
 
 

@@ -45,25 +45,25 @@
 %
 function save_untouch_slice(slice, filename, slice_idx, img_idx, dim5_idx, dim6_idx, dim7_idx)
 
-   if ~exist('slice','var') | ~isnumeric(slice)
+   if ~exist('slice','var') || ~isnumeric(slice)
       msg = [char(10) '"slice" argument should be a portion of slices that was loaded' char(10)];
       msg = [msg 'by "load_untouch_nii.m". This should be a numeric matrix (i.e.' char(10)];
       msg = [msg 'only the .img field in the loaded structure).'];
       error(msg);
    end
 
-   if ~exist('filename','var') | ~exist(filename,'file')
+   if ~exist('filename','var') || ~exist(filename,'file')
       error('In order to save back, original NIfTI or ANALYZE file must exist.');
    end
 
-   if ~exist('slice_idx','var') | isempty(slice_idx) | ~isequal(size(slice,3),length(slice_idx))
+   if ~exist('slice_idx','var') || isempty(slice_idx) || ~isequal(size(slice,3),length(slice_idx))
       msg = [char(10) '"slice_idx" is a numerical array of image slice indices, which' char(10)];
       msg = [msg 'should be the same as that you entered in "load_untouch_nii.m"' char(10)];
       msg = [msg 'command.'];
       error(msg);
    end
 
-   if ~exist('img_idx','var') | isempty(img_idx)
+   if ~exist('img_idx','var') || isempty(img_idx)
       img_idx = [];
 
       if ~isequal(size(slice,4),1)
@@ -79,7 +79,7 @@ function save_untouch_slice(slice, filename, slice_idx, img_idx, dim5_idx, dim6_
       error(msg);
    end
 
-   if ~exist('dim5_idx','var') | isempty(dim5_idx)
+   if ~exist('dim5_idx','var') || isempty(dim5_idx)
       dim5_idx = [];
 
       if ~isequal(size(slice,5),1)
@@ -95,7 +95,7 @@ function save_untouch_slice(slice, filename, slice_idx, img_idx, dim5_idx, dim6_
       error(msg);
    end
 
-   if ~exist('dim6_idx','var') | isempty(dim6_idx)
+   if ~exist('dim6_idx','var') || isempty(dim6_idx)
       dim6_idx = [];
 
       if ~isequal(size(slice,6),1)
@@ -111,7 +111,7 @@ function save_untouch_slice(slice, filename, slice_idx, img_idx, dim5_idx, dim6_
       error(msg);
    end
 
-   if ~exist('dim7_idx','var') | isempty(dim7_idx)
+   if ~exist('dim7_idx','var') || isempty(dim7_idx)
       dim7_idx = [];
 
       if ~isequal(size(slice,7),1)
@@ -129,10 +129,10 @@ function save_untouch_slice(slice, filename, slice_idx, img_idx, dim5_idx, dim6_
 
    %  Check file extension. If .gz, unpack it into temp folder
    %
-   if length(filename) > 2 & strcmp(filename(end-2:end), '.gz')
+   if length(filename) > 2 && strcmp(filename(end-2:end), '.gz')
 
-      if ~strcmp(filename(end-6:end), '.img.gz') & ...
-         ~strcmp(filename(end-6:end), '.hdr.gz') & ...
+      if ~strcmp(filename(end-6:end), '.img.gz') && ...
+         ~strcmp(filename(end-6:end), '.hdr.gz') && ...
          ~strcmp(filename(end-6:end), '.nii.gz')
 
          error('Please check filename.');
@@ -231,7 +231,7 @@ function save_untouch_slice(slice, filename, slice_idx, img_idx, dim5_idx, dim6_
          movefile([fileprefix, '.nii.gz']);
       end;
 
-      rmdir(tmpDir,'s');
+      nii_rmdir(tmpDir,'s');
    end;
 
    return					% save_untouch_slice
@@ -240,33 +240,33 @@ function save_untouch_slice(slice, filename, slice_idx, img_idx, dim5_idx, dim6_
 %--------------------------------------------------------------------------
 function save_untouch_slice_img(slice,hdr,filetype,fileprefix,machine,slice_idx,img_idx,dim5_idx,dim6_idx,dim7_idx)
 
-   if ~exist('hdr','var') | ~exist('filetype','var') | ~exist('fileprefix','var') | ~exist('machine','var')
+   if ~exist('hdr','var') || ~exist('filetype','var') || ~exist('fileprefix','var') || ~exist('machine','var')
       error('Usage: save_untouch_slice_img(slice,hdr,filetype,fileprefix,machine,slice_idx,[img_idx],[dim5_idx],[dim6_idx],[dim7_idx]);');
    end
 
-   if ~exist('slice_idx','var') | isempty(slice_idx) | hdr.dime.dim(4)<1
+   if ~exist('slice_idx','var') || isempty(slice_idx) || hdr.dime.dim(4)<1
       slice_idx = [];
    end
 
-   if ~exist('img_idx','var') | isempty(img_idx) | hdr.dime.dim(5)<1
+   if ~exist('img_idx','var') || isempty(img_idx) || hdr.dime.dim(5)<1
       img_idx = [];
    end
 
-   if ~exist('dim5_idx','var') | isempty(dim5_idx) | hdr.dime.dim(6)<1
+   if ~exist('dim5_idx','var') || isempty(dim5_idx) || hdr.dime.dim(6)<1
       dim5_idx = [];
    end
 
-   if ~exist('dim6_idx','var') | isempty(dim6_idx) | hdr.dime.dim(7)<1
+   if ~exist('dim6_idx','var') || isempty(dim6_idx) || hdr.dime.dim(7)<1
       dim6_idx = [];
    end
 
-   if ~exist('dim7_idx','var') | isempty(dim7_idx) | hdr.dime.dim(8)<1
+   if ~exist('dim7_idx','var') || isempty(dim7_idx) || hdr.dime.dim(8)<1
       dim7_idx = [];
    end
 
    %  check img_idx
    %
-   if ~isempty(img_idx) & ~isnumeric(img_idx)
+   if ~isempty(img_idx) && ~isnumeric(img_idx)
       error('"img_idx" should be a numerical array.');
    end
 
@@ -274,7 +274,7 @@ function save_untouch_slice_img(slice,hdr,filetype,fileprefix,machine,slice_idx,
       error('Duplicate image index in "img_idx"');
    end
 
-   if ~isempty(img_idx) & (min(img_idx) < 1 | max(img_idx) > hdr.dime.dim(5))
+   if ~isempty(img_idx) && (min(img_idx) < 1 || max(img_idx) > hdr.dime.dim(5))
       max_range = hdr.dime.dim(5);
 
       if max_range == 1
@@ -287,7 +287,7 @@ function save_untouch_slice_img(slice,hdr,filetype,fileprefix,machine,slice_idx,
 
    %  check dim5_idx
    %
-   if ~isempty(dim5_idx) & ~isnumeric(dim5_idx)
+   if ~isempty(dim5_idx) && ~isnumeric(dim5_idx)
       error('"dim5_idx" should be a numerical array.');
    end
 
@@ -295,7 +295,7 @@ function save_untouch_slice_img(slice,hdr,filetype,fileprefix,machine,slice_idx,
       error('Duplicate index in "dim5_idx"');
    end
 
-   if ~isempty(dim5_idx) & (min(dim5_idx) < 1 | max(dim5_idx) > hdr.dime.dim(6))
+   if ~isempty(dim5_idx) && (min(dim5_idx) < 1 || max(dim5_idx) > hdr.dime.dim(6))
       max_range = hdr.dime.dim(6);
 
       if max_range == 1
@@ -308,7 +308,7 @@ function save_untouch_slice_img(slice,hdr,filetype,fileprefix,machine,slice_idx,
 
    %  check dim6_idx
    %
-   if ~isempty(dim6_idx) & ~isnumeric(dim6_idx)
+   if ~isempty(dim6_idx) && ~isnumeric(dim6_idx)
       error('"dim6_idx" should be a numerical array.');
    end
 
@@ -316,7 +316,7 @@ function save_untouch_slice_img(slice,hdr,filetype,fileprefix,machine,slice_idx,
       error('Duplicate index in "dim6_idx"');
    end
 
-   if ~isempty(dim6_idx) & (min(dim6_idx) < 1 | max(dim6_idx) > hdr.dime.dim(7))
+   if ~isempty(dim6_idx) && (min(dim6_idx) < 1 || max(dim6_idx) > hdr.dime.dim(7))
       max_range = hdr.dime.dim(7);
 
       if max_range == 1
@@ -329,7 +329,7 @@ function save_untouch_slice_img(slice,hdr,filetype,fileprefix,machine,slice_idx,
 
    %  check dim7_idx
    %
-   if ~isempty(dim7_idx) & ~isnumeric(dim7_idx)
+   if ~isempty(dim7_idx) && ~isnumeric(dim7_idx)
       error('"dim7_idx" should be a numerical array.');
    end
 
@@ -337,7 +337,7 @@ function save_untouch_slice_img(slice,hdr,filetype,fileprefix,machine,slice_idx,
       error('Duplicate index in "dim7_idx"');
    end
 
-   if ~isempty(dim7_idx) & (min(dim7_idx) < 1 | max(dim7_idx) > hdr.dime.dim(8))
+   if ~isempty(dim7_idx) && (min(dim7_idx) < 1 || max(dim7_idx) > hdr.dime.dim(8))
       max_range = hdr.dime.dim(8);
 
       if max_range == 1
@@ -350,7 +350,7 @@ function save_untouch_slice_img(slice,hdr,filetype,fileprefix,machine,slice_idx,
 
    %  check slice_idx
    %
-   if ~isempty(slice_idx) & ~isnumeric(slice_idx)
+   if ~isempty(slice_idx) && ~isnumeric(slice_idx)
       error('"slice_idx" should be a numerical array.');
    end
 
@@ -358,7 +358,7 @@ function save_untouch_slice_img(slice,hdr,filetype,fileprefix,machine,slice_idx,
       error('Duplicate index in "slice_idx"');
    end
 
-   if ~isempty(slice_idx) & (min(slice_idx) < 1 | max(slice_idx) > hdr.dime.dim(4))
+   if ~isempty(slice_idx) && (min(slice_idx) < 1 || max(slice_idx) > hdr.dime.dim(4))
       max_range = hdr.dime.dim(4);
 
       if max_range == 1
@@ -456,8 +456,8 @@ function write_image(slice,hdr,filetype,fileprefix,machine,slice_idx,img_idx,dim
       fseek(fid, hdr.dime.vox_offset, 'bof');
    end
 
-   if hdr.dime.datatype == 1 | isequal(hdr.dime.dim(4:8),ones(1,5)) | ...
-	(isempty(img_idx) & isempty(dim5_idx) & isempty(dim6_idx) & isempty(dim7_idx) & isempty(slice_idx))
+   if hdr.dime.datatype == 1 || isequal(hdr.dime.dim(4:8),ones(1,5)) || ...
+	(isempty(img_idx) && isempty(dim5_idx) && isempty(dim6_idx) && isempty(dim7_idx) && isempty(slice_idx))
 
       msg = [char(10) char(10) '   "save_untouch_slice" is used to save back to the original image a' char(10)];
       msg = [msg '   portion of slices that were loaded by "load_untouch_nii". You can' char(10)];
@@ -505,13 +505,13 @@ function write_image(slice,hdr,filetype,fileprefix,machine,slice_idx,img_idx,dim
          %  For complex float32 or complex float64, voxel values
          %  include [real, imag]
          %
-         if hdr.dime.datatype == 32 | hdr.dime.datatype == 1792
+         if hdr.dime.datatype == 32 || hdr.dime.datatype == 1792
             img_siz = img_siz * 2;
          end
 
          %MPH: For RGB24, voxel values include 3 separate color planes
          %
-         if hdr.dime.datatype == 128 | hdr.dime.datatype == 511
+         if hdr.dime.datatype == 128 || hdr.dime.datatype == 511
             img_siz = img_siz * 3;
          end
 
@@ -541,13 +541,13 @@ function write_image(slice,hdr,filetype,fileprefix,machine,slice_idx,img_idx,dim
                      %  For complex float32 or complex float64, voxel values
                      %  include [real, imag]
                      %
-                     if hdr.dime.datatype == 32 | hdr.dime.datatype == 1792
+                     if hdr.dime.datatype == 32 || hdr.dime.datatype == 1792
                         img_siz = img_siz * 2;
                      end
 
                      %MPH: For RGB24, voxel values include 3 separate color planes
                      %
-                     if hdr.dime.datatype == 128 | hdr.dime.datatype == 511
+                     if hdr.dime.datatype == 128 || hdr.dime.datatype == 511
                         img_siz = img_siz * 3;
                      end
                   end; % if (roman)

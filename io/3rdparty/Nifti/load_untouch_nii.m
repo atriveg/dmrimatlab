@@ -12,12 +12,12 @@
 %  together with "save_untouch_nii.m", and do not use "save_nii.m" or
 %  "view_nii.m" for the data that is loaded by "load_untouch_nii.m". For
 %  normal situation, you should use "load_nii.m" instead.
-%  
+%
 %  Usage: nii = load_untouch_nii(filename, [img_idx], [dim5_idx], [dim6_idx], ...
 %			[dim7_idx], [old_RGB], [slice_idx])
-%  
+%
 %  filename  - 	NIFTI or ANALYZE file name.
-%  
+%
 %  img_idx (optional)  -  a numerical array of image volume indices.
 %	Only the specified volumes will be loaded. All available image
 %	volumes will be loaded, if it is default or empty.
@@ -41,7 +41,7 @@
 %	from old RGB24. New RGB24 uses RGB triple sequentially for each
 %	voxel, like [R1 G1 B1 R2 G2 B2 ...]. Analyze 6.0 from AnalyzeDirect
 %	uses old RGB24, in a way like [R1 R2 ... G1 G2 ... B1 B2 ...] for
-%	each slices. If the image that you view is garbled, try to set 
+%	each slices. If the image that you view is garbled, try to set
 %	old_RGB variable to 1 and try again, because it could be in
 %	old RGB24. It will be set to 0, if it is default or empty.
 %
@@ -50,12 +50,12 @@
 %	slices will be loaded, if it is default or empty.
 %
 %  Returned values:
-%  
+%
 %  nii structure:
 %
 %	hdr -		struct with NIFTI header fields.
 %
-%	filetype -	Analyze format .hdr/.img (0); 
+%	filetype -	Analyze format .hdr/.img (0);
 %			NIFTI .hdr/.img (1);
 %			NIFTI .nii (2)
 %
@@ -74,27 +74,27 @@ function nii = load_untouch_nii(filename, img_idx, dim5_idx, dim6_idx, dim7_idx,
       error('Usage: nii = load_untouch_nii(filename, [img_idx], [dim5_idx], [dim6_idx], [dim7_idx], [old_RGB], [slice_idx])');
    end
 
-   if ~exist('img_idx','var') | isempty(img_idx)
+   if ~exist('img_idx','var') || isempty(img_idx)
       img_idx = [];
    end
 
-   if ~exist('dim5_idx','var') | isempty(dim5_idx)
+   if ~exist('dim5_idx','var') || isempty(dim5_idx)
       dim5_idx = [];
    end
 
-   if ~exist('dim6_idx','var') | isempty(dim6_idx)
+   if ~exist('dim6_idx','var') || isempty(dim6_idx)
       dim6_idx = [];
    end
 
-   if ~exist('dim7_idx','var') | isempty(dim7_idx)
+   if ~exist('dim7_idx','var') || isempty(dim7_idx)
       dim7_idx = [];
    end
 
-   if ~exist('old_RGB','var') | isempty(old_RGB)
+   if ~exist('old_RGB','var') || isempty(old_RGB)
       old_RGB = 0;
    end
 
-   if ~exist('slice_idx','var') | isempty(slice_idx)
+   if ~exist('slice_idx','var') || isempty(slice_idx)
       slice_idx = [];
    end
 
@@ -105,8 +105,8 @@ function nii = load_untouch_nii(filename, img_idx, dim5_idx, dim6_idx, dim7_idx,
    %
    if length(filename) > 2 & strcmp(filename(end-2:end), '.gz')
 
-      if ~strcmp(filename(end-6:end), '.img.gz') & ...
-	 ~strcmp(filename(end-6:end), '.hdr.gz') & ...
+      if ~strcmp(filename(end-6:end), '.img.gz') && ...
+	 ~strcmp(filename(end-6:end), '.hdr.gz') && ...
 	 ~strcmp(filename(end-6:end), '.nii.gz')
 
          error('Please check filename.');
@@ -183,7 +183,7 @@ function nii = load_untouch_nii(filename, img_idx, dim5_idx, dim6_idx, dim7_idx,
       %  fix fileprefix so it doesn't point to temp location
       %
       nii.fileprefix = gzFileName(1:end-7);
-      rmdir(tmpDir,'s');
+      nii_rmdir(tmpDir,'s');
    end
 
 

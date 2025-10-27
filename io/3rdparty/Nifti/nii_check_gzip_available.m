@@ -6,6 +6,12 @@ end
 
 success = true;
 
+[sf,sfname,vs] = check_software_platform;
+
+if(sf==2) % Octave
+    return;
+end
+
 v = version;
 p = strfind(v,'.');
 if(~isempty(p))
