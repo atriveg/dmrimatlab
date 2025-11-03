@@ -380,12 +380,12 @@ switch (img.metaData.encoding)
         fwrite(fid, img.pixelData, class(img.pixelData));
     case {'gzip', 'gz'}
         try
-            compressedPixelData = zlib_compress(img.pixelData, class(img.pixelData));
-        catch noMemory
-            disp('Not enough Java heap space (it can be increased in Matlab preferences)');
-            return;
+            compressedPixelData = nrrd_gzip_compress(img.pixelData, class(img.pixelData));
+        catch ME
+            fclose('all');
+            rethrow(ME);
         end
-        fwrite(fid, compressedPixelData, class(compressedPixelData));
+        fwrite( fid, compressedPixelData, 'uint8' );
     otherwise
         assert(false, 'Unsupported encoding')
 end
@@ -455,26 +455,3 @@ switch (matlabType)
 end
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function compressedPixelData = zlib_compress(pixelData,DataType)
-% Function for compressing pixel data
-%   pixelData: pixel data to be compressed
-%   DataType: data type of volume
-% Returns: compressed data
-% Examples:
-%   compressedPixelData = zlib_compress(pixelData,int32)
-
-cn = strmatch(DataType,{'double','single','logical','char','int8','uint8',...
-    'int16','uint16','int32','uint32','int64','uint64'});
-
-if cn == 3 || cn == 4
-    pixelData=uint8(pixelData);
-end
-pixelData=typecast(pixelData(:),'uint8');
-a=java.io.ByteArrayOutputStream();
-b=java.util.zip.GZIPOutputStream(a);
-b.write(pixelData);
-b.close;
-compressedPixelData=typecast(a.toByteArray,'uint8');
-a.close;
-end

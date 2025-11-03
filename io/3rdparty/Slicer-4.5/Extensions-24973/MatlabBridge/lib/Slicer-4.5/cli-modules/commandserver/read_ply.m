@@ -281,7 +281,7 @@ for i = 1:NumElements
          Token = getfield(CurPropertyTypes,CurPropertyNames{j});
          
          if ~strcmp(Token{1},'list')			% non-list type
-	         tmp = rem(strmatch(Token{1},PlyTypeNames,'exact')-1,8)+1;
+	         tmp = rem(find(strcmp(Token{1},PlyTypeNames))-1,8)+1;
          
             if ~isempty(tmp)
                TypeSize(j) = SizeOf(tmp);
@@ -299,8 +299,8 @@ for i = 1:NumElements
             if length(Token) == 3
                ListFlag = 1;
                SameFlag = 0;
-               tmp = rem(strmatch(Token{2},PlyTypeNames,'exact')-1,8)+1;
-               tmp2 = rem(strmatch(Token{3},PlyTypeNames,'exact')-1,8)+1;
+               tmp = rem(find(strcmp(Token{2},PlyTypeNames))-1,8)+1;
+               tmp2 = rem(find(strcmp(Token{3},PlyTypeNames))-1,8)+1;
          
                if ~isempty(tmp) & ~isempty(tmp2)
                   TypeSize(j) = SizeOf(tmp);

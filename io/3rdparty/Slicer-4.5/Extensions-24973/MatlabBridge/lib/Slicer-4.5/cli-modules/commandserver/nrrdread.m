@@ -28,7 +28,7 @@ assert(numel(theLine) >= 4, 'Bad signature in file.')
 assert(isequal(theLine(1:4), 'NRRD'), 'Bad signature in file.')
 
 % The general format of a NRRD file (with attached header) is:
-% 
+%
 %     NRRD000X
 %     <field>: <desc>
 %     <field>: <desc>
@@ -39,7 +39,7 @@ assert(isequal(theLine(1:4), 'NRRD'), 'Bad signature in file.')
 %     <key>:=<value>
 %     <key>:=<value>
 %     # <comment>
-% 
+%
 %     <data><data><data><data><data><data>...
 
 img.metaData = {};
@@ -48,25 +48,25 @@ img.metaDataFieldNames = {};
 while (true)
 
   theLine = fgetl(fid);
-  
+
   if (isempty(theLine) || feof(fid))
     % End of the header.
     break;
   end
-  
+
   if (isequal(theLine(1), '#'))
       % Comment line.
       continue;
   end
-  
+
   % "fieldname:= value" or "fieldname: value" or "fieldname:value"
   parsedLine = regexp(theLine, ':=?\s*', 'split','once');
-  
+
   assert(numel(parsedLine) == 2, 'Parsing error')
-  
+
   field = parsedLine{1};
   value = parsedLine{2};
-      
+
   % Cannot use special characters in field names, so replace them by underscore
   % and store the original field name in img.metaDataFieldNames so that it can be
   % restored when writing the data.
@@ -74,7 +74,7 @@ while (true)
   if ~strcmp(fieldName,field)
     img.metaDataFieldNames.(fieldName) = field;
   end
-  
+
   % In case a tag is duplicated, keep just the first one. This is necessary
   % in DWI volumes since the "space" appears both as space: blabla and as
   % space:=blabla. The second one occurs after the gradient table and it is
@@ -86,7 +86,7 @@ while (true)
           img.metaData(1).(fieldName) = value;
       end
   end
-  
+
 end
 
 datatype = getDatatype(img.metaData.type);
@@ -142,7 +142,7 @@ function datatype = getDatatype(metaType)
 % Determine the datatype
 switch (metaType)
  case {'signed char', 'int8', 'int8_t'}
-  datatype = 'int8';  
+  datatype = 'int8';
  case {'uchar', 'unsigned char', 'uint8', 'uint8_t'}
   datatype = 'uint8';
  case {'short', 'short int', 'signed short', 'signed short int', ...
@@ -173,21 +173,21 @@ end
 function data = readData(fidIn, meta, datatype)
 
 switch (meta.encoding)
- case {'raw'}
-  data = fread(fidIn, inf, [datatype '=>' datatype]);
- case {'gzip', 'gz'}
-  compressedData  = fread(fidIn, inf, 'uchar=>uint8');
-  try
-    data = zlib_decompress(compressedData,datatype);
-  catch noMemory
-    disp('Not enough Java heap space (it can be increased in Matlab preferences)');
-    return;
-  end
- case {'txt', 'text', 'ascii'}  
-  data = fscanf(fidIn, '%f');
-  data = cast(data, datatype);  
- otherwise
-  assert(false, 'Unsupported encoding')
+   case {'raw'}
+      data = fread(fidIn, inf, [datatype '=>' datatype]);
+   case {'gzip', 'gz'}
+      compressedData  = fread(fidIn, inf, 'uchar=>uint8');
+      try
+         data = nrrd_gunzip_uncompress(compressedData,datatype);
+      catch ME
+         fclose('all');
+         rethrow(ME);
+      end
+   case {'txt', 'text', 'ascii'}
+       data = fscanf(fidIn, '%f');
+       data = cast(data, datatype);
+   otherwise
+      assert(false, 'Unsupported encoding')
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -201,19 +201,3 @@ if (needToSwap)
 data = swapbytes(data);
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function M = zlib_decompress(Z,DataType)
-% Function for decompressing pixel data 
-%   Z: pixel data to decompress (from uchar to uint8)
-%   DataType: data type of the volume
-% Returns: decompressed pixel data
-% Examples:
-%   pixelData = zlib_decompress(Z,int32);
-
-  import com.mathworks.mlwidgets.io.InterruptibleStreamCopier
-  a=java.io.ByteArrayInputStream(Z);
-  b=java.util.zip.GZIPInputStream(a);
-  isc = InterruptibleStreamCopier.getInterruptibleStreamCopier;
-  c = java.io.ByteArrayOutputStream;
-  isc.copyStream(b,c);
-  M=typecast(c.toByteArray,DataType);
