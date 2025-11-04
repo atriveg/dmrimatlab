@@ -42,11 +42,20 @@ for f=1:numel(fields)
     end
 end
 
+% Normalize according to:
+%
+% https://www.na-mic.org/wiki/NAMIC_Wiki:DTI:Nrrd_format#Describing_DWIs_with_different_b-values
+%
+% NOTE: Accroding to vtkMRMLNRRDStorageNode::ParseDiffusionInformation(),
+%       each bi is computed as:
+%
+%          bi = b0*( ||gi|| / max_i{||gi||} )^2,
+%
+%       where b0 is the reference value passed with the DWMRI_b-value tag
 modules = sqrt(sum(gi.*gi,2)); % Gx1
+maxmod  = max(modules);
+gi      = gi./modules;         % Gx3, broadcast
+bi      = bi*(modules./maxmod).*(modules./maxmod);
 bsidx   = (modules<0.01);      % baselines
-
-gi = gi./repmat(modules,[1,3]);
-bi = bi.*modules;
 gi(bsidx,:) = 0;
 bi(bsidx,:) = 0;
-

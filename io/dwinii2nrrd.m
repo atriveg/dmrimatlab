@@ -102,7 +102,7 @@ gi = gi.*ni; % All have norm 1 but baselines, which have norm 0
 %
 %          bi = b0*( ||gi|| / max_i{||gi||} )^2,
 %
-%       where b0 is the reference value passed with theDWMRI_b-value tag
+%       where b0 is the reference value passed with the DWMRI_b-value tag
 bval0 = max(bi); %
 ni    = sqrt(bi/bval0);
 gi    = gi.*ni;
