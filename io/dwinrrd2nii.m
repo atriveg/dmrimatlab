@@ -102,13 +102,25 @@ nii.hdr.hist.descrip = sprintf('Converted with dwinrrd2nii');
 nii.hdr.hist.aux_file = '';
 % Compute the homogeneous matrix to go from pixel space to physical space:
 T = compute_ijk2xyz_matrix( nrrd.ijkToLpsTransform, nrrd.metaData.space );
-nii.hdr.hist.qform_code = 1;
-nii.hdr.hist.sform_code = 1;
-% Compute quaternion form from homogeneous matrix:
+% Compute its quaternion representation, if possible (note that in some
+% cases the homogenous matrix T will imply some of the axis is swaped, so
+% that a quaternion cannot properly represent this transformation):
 q = rotmatrix2quaternion(T);
-nii.hdr.hist.quatern_b = q(2);
-nii.hdr.hist.quatern_c = q(3);
-nii.hdr.hist.quatern_d = q(4);
+if(~isempty(q))
+    nii.hdr.hist.qform_code = 1;
+else
+    nii.hdr.hist.qform_code = 0; % Don't use quaternion representation
+end
+nii.hdr.hist.sform_code = 1;
+if(~isempty(q))
+    nii.hdr.hist.quatern_b = q(2);
+    nii.hdr.hist.quatern_c = q(3);
+    nii.hdr.hist.quatern_d = q(4);
+else
+    nii.hdr.hist.quatern_b = 0;
+    nii.hdr.hist.quatern_c = 0;
+    nii.hdr.hist.quatern_d = 0;
+end
 nii.hdr.hist.qoffset_x = T(1,4);
 nii.hdr.hist.qoffset_y = T(2,4);
 nii.hdr.hist.qoffset_z = T(3,4);
@@ -205,10 +217,13 @@ end
 
 % -------------------------------------------------------------------------
 function ijk2xyz = compute_ijk2xyz_matrix( ijk2xyz, space )
-% Note: nrrdread loads the NRRD file and sets the ijkToLpsTransform in
-% one-based indexing, but we need it to be zero-based:
-onebased2zerobased = [ [eye(3), [1;1;1] ]; [0 0 0 1] ];
-ijk2xyz            = ijk2xyz*onebased2zerobased;
+% Note: we have patched the original nrrdread so that it actually loads the 
+% NRRD file and sets the ijkToLpsTransform with zero-based indexing, which
+% is the same we assume in the Nifti toolbox, hence:
+%    onebased2zerobased = [ [eye(3), [1;1;1] ]; [0 0 0 1] ];
+%    ijk2xyz            = ijk2xyz*onebased2zerobased;
+% is no longer needed.
+
 % Now, we have to take into account the anatomical space of the image. Note
 % NRRD has a specific field "space" for it, something like:
 %   right-anterior-superior (for RAS) 
@@ -245,12 +260,32 @@ end
 
 % -------------------------------------------------------------------------
 function q = rotmatrix2quaternion(T)
+q = [];
 % --------------------------------------------
 % Keep just the rotation part of T:
 T = T(1:3,1:3);
 % Normalize each column:
 n = sqrt(sum(T.*T,1));
 T = T./n;
+% --------------------------------------------
+% In case the determinant is negative, this
+% is not a rotation matrix (one of the axis is
+% swaped), so a quaternion cannot represent it.
+% Just return an empty vector and handle it
+% outside:
+if(det(T)<0), return; end
+% --------------------------------------------
+% To ensure we start with a rotation matrix,
+% let's use Cayley's transform:
+I3 = eye(3);
+% This should be skew-symmetric...
+A  = (I3-T)*((I3+T)\I3);
+% ... force it to actually be:
+A  = (A-A')/2;
+% Map back to a rotation matrix:
+T  = (I3-A)*((I3+A)\I3);
+% Sanity check:
+if( any(isinf(T(:))) || any(isnan(T(:))) ), return; end
 % --------------------------------------------
 m00 = T(1,1); m01 = T(1,2); m02 = T(1,3);
 m10 = T(2,1); m11 = T(2,2); m12 = T(2,3);

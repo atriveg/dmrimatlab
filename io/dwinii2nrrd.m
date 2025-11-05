@@ -110,7 +110,7 @@ gi    = gi.*ni;
 [bs,ps,Ns] = auto_detect_shells(bi,bth);
 shelldesc = '';
 for n=1:Ns
-    count     = sum(ps==n);
+    count = sum(ps==n);
     if(n==1)
         shelldesc = sprintf('%1.1f x %d',bs(n),count);
     else
@@ -280,14 +280,9 @@ end
 img.metaData.sizes=num2str(size(img.pixelData));
 
 if isfield(img,'ijkToLpsTransform')
-    % Write zero-based IJK transform (origin is at [0,0,0]) to the image header
-    ijkOneBasedToLpsTransform=img.ijkToLpsTransform;
-    %ijkOneBasedToIjkZeroBasedTransform=[[eye(3), [-1;-1;-1] ]; [0 0 0 1]];
-    ijkOneBasedToIjkZeroBasedTransform=[[eye(3), [0;0;0] ]; [0 0 0 1]];
-    ijkZeroBasedToLpsTransform=ijkOneBasedToLpsTransform*inv(ijkOneBasedToIjkZeroBasedTransform);
-    axes_origin=ijkZeroBasedToLpsTransform(1:3,4);
-    img.metaData.space_origin=sprintf('(%f,%f,%f)',reshape(axes_origin,1,3));
-    axes_directions=ijkZeroBasedToLpsTransform(1:3,1:3);
+    axes_origin = img.ijkToLpsTransform(1:3,4);
+    img.metaData.space_origin = sprintf('(%f,%f,%f)',reshape(axes_origin,1,3));
+    axes_directions = img.ijkToLpsTransform(1:3,1:3);
     switch (img.metaData.dimension)
         case {3}
             img.metaData.space_directions=sprintf('(%f,%f,%f) (%f,%f,%f) (%f,%f,%f)',reshape(axes_directions,1,9));
