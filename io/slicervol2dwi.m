@@ -1,9 +1,8 @@
 function [dwi,gi,bi] = slicervol2dwi(img)
-% function dwi = slicervol2dwi(img)
+% function [dwi,gi,bi] = slicervol2dwi(img)
 %
-%   Parses a DWI data set created with 3-D Slicer via MatlabBridge and the
-%   SlicerVolumeToMatFile module (see 3rdparty folder) and outputs a dwi 
-%   signal (i.e., the diffusion weighted images without normalization and 
+%   Parses a DWI data set read from a NRDD file with nrrdread and outputs a
+%   DWI (i.e., the diffusion weighted images without normalization and
 %   the baselines), gradients table (including those with zero length 
 %   corresponding to the baselines), and b-values (including those zeros 
 %   corresponding to the baselines) to be used with "dwi2something" 
