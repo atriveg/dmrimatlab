@@ -1,4 +1,4 @@
-function test_atti2freewater
+function test_atti2freewater(opt)
 
 sf = check_software_platform;
 if(sf==2)
@@ -15,7 +15,50 @@ end
 EIGENVALS = 'gaussian';    % 'uniform'/'gaussian'
 NOISE     = 'rice';        % 'rice'/'gauss'
 METHOD    = 'micro-fixed'; % 'tensor'/'positive'/'micro'/'micro-fixed'
+nu_       = 0.1;
+lpar_     = 2.0e-3;
+Nnb       = 4;
+PSNR      = 18;
+if(nargin>0)
+    if(isfield(opt,'PLOTOTHERSCALARS'))
+        PLOTOTHERSCALARS = opt.PLOTOTHERSCALARS;
+    end
+    if(isfield(opt,'SAMPLING'))
+        SAMPLING = opt.SAMPLING;
+    end
+    if(isfield(opt,'EIGENVALS'))
+        EIGENVALS = opt.EIGENVALS;
+    end
+    if(isfield(opt,'NOISE'))
+        NOISE = opt.NOISE;
+    end
+    if(isfield(opt,'METHOD'))
+        METHOD = opt.METHOD;
+    end
+    if(isfield(opt,'nu'))
+        nu_ = opt.nu;
+    end
+    if(isfield(opt,'lpar'))
+        lpar_ = opt.lpar;
+    end
+    if(isfield(opt,'gi'))
+        gi = opt.gi;
+        G  = size(gi,1);
+    end
+    if(isfield(opt,'bi'))
+        bi = opt.bi;
+    end
+    if(isfield(opt,'Nnb'))
+        Nnb = opt.Nnb;
+    end
+    if(isfield(opt,'PSNR'))
+        PSNR  = opt.PSNR;
+        sigma = 1/PSNR;
+    end
+end
+
 switch(SAMPLING)
+    case 0
     case 1
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % SYNTHETIC SAMPLING SCHEME:
@@ -266,7 +309,7 @@ q1  = randn(N,4);
 nq1 = sqrt(sum(q1.*q1,2));
 q1  = q1./nq1;
 %%%
-ph2 = (rand(N,1)-1/2)*pi/6;
+ph2 = rand(N,1)*(pi/2);
 q2  = [ cos(ph2/2), zeros(N,1), zeros(N,1), sin(ph2/2) ];
 %%%
 ph3 = (rand(N,1)-1/2)*pi/6;
@@ -344,12 +387,12 @@ for C=1:3
             % - Compute the 6 independent components of the diffusion tensor
             %   corresponding to this compartment:
             DT = zeros(6,N); % 6xN
-            DT(1,:) = l1*(xx(1).*xx(1)) + l2*(yy(1).*yy(1)) + l3*(zz(1).*zz(1));
-            DT(2,:) = l1*(xx(1).*xx(2)) + l2*(yy(1).*yy(2)) + l3*(zz(1).*zz(2));
-            DT(3,:) = l1*(xx(1).*xx(3)) + l2*(yy(1).*yy(3)) + l3*(zz(1).*zz(3));
-            DT(4,:) = l1*(xx(2).*xx(2)) + l2*(yy(2).*yy(2)) + l3*(zz(2).*zz(2));
-            DT(5,:) = l1*(xx(2).*xx(3)) + l2*(yy(2).*yy(3)) + l3*(zz(2).*zz(3));
-            DT(6,:) = l1*(xx(3).*xx(3)) + l2*(yy(3).*yy(3)) + l3*(zz(3).*zz(3));
+            DT(1,:) = l1.*(xx(1,:).*xx(1,:)) + l2.*(yy(1,:).*yy(1,:)) + l3.*(zz(1,:).*zz(1,:));
+            DT(2,:) = l1.*(xx(1,:).*xx(2,:)) + l2.*(yy(1,:).*yy(2,:)) + l3.*(zz(1,:).*zz(2,:));
+            DT(3,:) = l1.*(xx(1,:).*xx(3,:)) + l2.*(yy(1,:).*yy(3,:)) + l3.*(zz(1,:).*zz(3,:));
+            DT(4,:) = l1.*(xx(2,:).*xx(2,:)) + l2.*(yy(2,:).*yy(2,:)) + l3.*(zz(2,:).*zz(2,:));
+            DT(5,:) = l1.*(xx(2,:).*xx(3,:)) + l2.*(yy(2,:).*yy(3,:)) + l3.*(zz(2,:).*zz(3,:));
+            DT(6,:) = l1.*(xx(3,:).*xx(3,:)) + l2.*(yy(3,:).*yy(3,:)) + l3.*(zz(3,:).*zz(3,:));
             DT = 1.0e-3*DT; % 6xN
             % - Compute the quadratic form corresponing to the present
             %   compartment for all gradient directions:
@@ -420,10 +463,10 @@ for C=1:3
                 [~,~,f2] = atti2micro( reshape(Si2',[N,1,1,G]), gi, bi, ...
                     'lambda', lambda, ...
                     'mu', 0.00, ...
-                    'nu', 0.02, ... % 0.1 for scenario 10
+                    'nu', nu_, ...
                     'bth', 10, ...
                     'forcelpar', true, ...
-                    'lpar', 2.10e-3, ...%2.45e-3, ... % Put 2.8e-3 for scenario 5, or 2.45e-3 for scenarios 8 and 9, or 2.2e-3 for scenario 10
+                    'lpar', lpar_, ...
                     'verbose', false, ...
                     'usef', true, ...
                     'regf', true, ...
