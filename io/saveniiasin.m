@@ -70,7 +70,9 @@ nd = ndims(vol);
 if( (nd<2) || (nd>7) )
     error('The input volume has an unsupported number of dimensions');
 end
-[X,Y,Z] = size(vol);
+X = size(vol,1);
+Y = size(vol,2);
+Z = size(vol,3);
 assert( isequal([X,Y,Z],template.hdr.dime.dim(2:4)), ...
     'The size of your volume doesn''t match the FoV of the template' );
 % Most of the information can be just copied from the template:
@@ -137,6 +139,6 @@ switch(class(sample))
         code = 64;
         bpix = 64;
     otherwise
-        error('Unsupported data type');
+        error('%s is an unsupported data type for nifti',class(sample));
 end
 end

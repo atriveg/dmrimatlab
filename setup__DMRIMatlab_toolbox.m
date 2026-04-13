@@ -24,7 +24,7 @@ if(~isdeployed)
     % ---
     parse__path_dmri( sprintf('%s%sutils',path0,filesep), {} );
     [sf,sfname,vs] = check_software_platform;
-    fprintf(1,'You''re running version %s of the toolbox under %s %1.2f\n',dmrilabvers,sfname,vs);
+    msg1 = sprintf('You''re running version %s of the toolbox under %s %1.2f\n',dmrilabvers,sfname,vs);
     % ---
     if(sf==1) % i.e. Matlab
         forbidden = {[path0,filesep,'graphics',filesep,'octave']};
@@ -35,21 +35,21 @@ if(~isdeployed)
         if( any(strcmp(tkts,'qt')) )
             try
                 graphics_toolkit('qt');
-                fprintf(1,'Using graphics toolkit: qt\n');
+                msg2 = sprintf('Using graphics toolkit: qt\n');
             catch
                 warning('Unable to set graphics toolkit to qt. Using default');
             end
         elseif( any(strcmp(tkts,'gnuplot')) )
             try
                 graphics_toolkit('gnuplot');
-                fprintf(1,'Using graphics toolkit: qt\n');
+                msg2 = sprintf('Using graphics toolkit: qt\n');
             catch
                 warning('Unable to set graphics toolkit to gnuplot. Using default');
             end
         elseif( any(strcmp(tkts,'fltk')) )
             try
                 graphics_toolkit('fltk');
-                fprintf(1,'Using graphics toolkit: fltk\n');
+                msg2 = sprintf('Using graphics toolkit: fltk\n');
             catch
                 warning('Unable to set graphics toolkit to fltk. Using default');
             end
@@ -67,9 +67,19 @@ end
 % -------------------------------------------------------------------------
 opt.usebroadcast = true; optchk.usebroadcast = [true,true]; % always 1x1 boolean
 opt.useparallel = false; optchk.useparallel = [true,true];  % always 1x1 boolean
+opt.quiet = false;       optchk.quiet = [true,true];
 % -------------------------------------------------------------------------
 opt = custom_parse_inputs(opt,optchk,varargin{:});
 % -------------------------------------------------------------------------
+
+if(~opt.quiet)
+    if(exist('msg1','var'))
+        fprintf(1,msg1);
+    end
+    if(exist('msg2','var'))
+        fprintf(1,msg2);
+    end
+end
 
 global is_broadcast_available_test_var; %#ok<GVMIS>
 if(~opt.usebroadcast)
