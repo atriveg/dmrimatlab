@@ -163,6 +163,34 @@ namespace dmriiters{
     }
 
     /**
+     * Set the absolute position within the image buffer for
+     * an arbitrary absolute value. BEWARE: if the absolute
+     * position is outside the iterated region or outside the
+     * image buffer, the iterator will be placed in its starting
+     * position and "false" will be returned
+     */
+    bool Iterator::AbsolutePosition( IndexType apos )
+    {
+        IndexType div  = 1;
+        for( unsigned int d=0; d<this->ndim; ++d )
+            div *= (IndexType)(this->fov[d]);
+        if( (apos<0) || (apos>=div) ){
+            this->Begin();
+            return false;
+        }
+        for( int d=(int)(this->ndim)-1; d>=0; --d ){
+            div /= this->fov[d];
+            this->pos[d]  = apos / div;
+            if(  (this->pos[d] < this->start[d]) || (this->pos[d] >= this->start[d] + (IndexType)(this->extent[d])) ){
+                this->Begin();
+                return false;
+            }
+            apos %= div;
+        }
+        return true;
+    }
+
+    /**
      * Retrieve the current position of the iterator in
      * an IndexBuffer
      */
@@ -434,7 +462,7 @@ namespace dmriiters{
 
     /**
      * The second one does the actual job: gets the current neighboor (checking
-     * for out-of-bounds) and moves towards the next one. It return true if
+     * for out-of-bounds) and moves towards the next one. It returns true if
      * there are still neighboors to be retrieved, false otherwise.
      * The pixels of the neighborhoods are retrieved in the natural order,
      * i.e., if radii={1,1,1} the N components at offset (-1,-1,-1)

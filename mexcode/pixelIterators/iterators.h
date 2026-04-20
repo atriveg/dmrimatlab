@@ -40,6 +40,7 @@ namespace dmriiters{
         bool End(void);
         IndexType AbsolutePosition(void);              // Get the absolute position within the image buffer
         IndexType AbsolutePosition(const IndexBuffer); // Get the absolute position within the image buffer
+        bool AbsolutePosition( IndexType );            // Set the absolute position within the image buffer
         void GetIndex(IndexBuffer);                    // Get the current pixel location
         bool SetIndex(const IndexBuffer);              // Set the current pixel location
         void GetPixel(BufferType);                     // Get the pixel at the current iteration

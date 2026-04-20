@@ -113,3 +113,13 @@ octave-workspace
 examples/.ipynb_checkpoints/tour_00index-checkpoint.ipynb
 examples/.ipynb_checkpoints/tour_04fwvf-checkpoint.ipynb
 examples/config.octave
+io/TestVol/P6_b800_r2_dwi_LPS.nii.gz
+io/TestVol/P6_b800_r2_dwi_LPS.nhdr
+io/TestVol/P6_b800_r2_dwi_LPS.bvec
+io/TestVol/P6_b800_r2_dwi_LPS.bval
+io/TestVol/P6_b800_r2_dwi.raw.gz
+io/TestVol/P6_b800_r2_dwi.nhdr
+io/TestVol/baseline.nii.gz
+examples/.ipynb_checkpoints/demo_DTMRI-checkpoint.ipynb
+examples/.ipynb_checkpoints/demo_MiSFIT-checkpoint.ipynb
+examples/.ipynb_checkpoints/tour_06representations-checkpoint.ipynb

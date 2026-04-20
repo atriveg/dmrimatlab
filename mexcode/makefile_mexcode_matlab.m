@@ -304,6 +304,14 @@ modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tractography'];
 mid = mid+1;
 % -----------------
+modules(mid).name = 'coeffs2localdispersion';
+modules(mid).src = './neighborhoodOps';
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp','../pixelIterators/iterators.cxx'};
+modules(mid).links  = [ blaslinks, trlinks ];
+modules(mid).flags = blasflags;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/neighborhoodOps'];
+mid = mid+1;
+% -----------------
 
 if(nargin>1)
     if( action=='x' )
