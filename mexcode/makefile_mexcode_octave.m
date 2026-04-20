@@ -319,6 +319,14 @@ modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tractography'];
 mid = mid+1;
 % -----------------
+modules(mid).name = 'coeffs2localdispersion';
+modules(mid).src = './neighborhoodOps';
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp','../pixelIterators/iterators.cxx'};
+modules(mid).links  = [ blaslinks, trlinks ];
+modules(mid).flags = blasflags;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/neighborhoodOps'];
+mid = mid+1;
+% -----------------
 
 if(nargin>1)
     if( action=='x' )
@@ -511,10 +519,6 @@ while(str~=-1)
                 error( sprintf('Wrong line in config file: <%s>. Must be PROPERTY=value',str) );
             end
             if(idx==1)
-                fclose(fid);
-                error( sprintf('Wrong line in config file: <%s>. Must be PROPERTY=value',str) );
-            end
-            if(idx==length(str))
                 fclose(fid);
                 error( sprintf('Wrong line in config file: <%s>. Must be PROPERTY=value',str) );
             end
