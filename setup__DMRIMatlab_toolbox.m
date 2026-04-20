@@ -30,32 +30,6 @@ if(~isdeployed)
         forbidden = {[path0,filesep,'graphics',filesep,'octave']};
     elseif(sf==2) % i.e Octave
         forbidden = {};
-        % Select graphics toolkit:
-        tkts = available_graphics_toolkits;
-        if( any(strcmp(tkts,'qt')) )
-            try
-                graphics_toolkit('qt');
-                msg2 = sprintf('Using graphics toolkit: qt\n');
-            catch
-                warning('Unable to set graphics toolkit to qt. Using default');
-            end
-        elseif( any(strcmp(tkts,'gnuplot')) )
-            try
-                graphics_toolkit('gnuplot');
-                msg2 = sprintf('Using graphics toolkit: qt\n');
-            catch
-                warning('Unable to set graphics toolkit to gnuplot. Using default');
-            end
-        elseif( any(strcmp(tkts,'fltk')) )
-            try
-                graphics_toolkit('fltk');
-                msg2 = sprintf('Using graphics toolkit: fltk\n');
-            catch
-                warning('Unable to set graphics toolkit to fltk. Using default');
-            end
-        else
-            warning('Unable to auto-detect graphics toolkit');
-        end
     else % i.e. Unknown
         error('Unknown software platform');
     end
@@ -68,9 +42,43 @@ end
 opt.usebroadcast = true; optchk.usebroadcast = [true,true]; % always 1x1 boolean
 opt.useparallel = false; optchk.useparallel = [true,true];  % always 1x1 boolean
 opt.quiet = false;       optchk.quiet = [true,true];
+opt.nographics = false;  optchk.nographics = [true,true];
 % -------------------------------------------------------------------------
 opt = custom_parse_inputs(opt,optchk,varargin{:});
 % -------------------------------------------------------------------------
+
+if(~isdeployed)
+    if(~opt.nographics)
+        if(sf==2)
+            % Select graphics toolkit:
+            tkts = available_graphics_toolkits;
+            if( any(strcmp(tkts,'qt')) )
+                try
+                    graphics_toolkit('qt');
+                    msg2 = sprintf('Using graphics toolkit: qt\n');
+                catch
+                    warning('Unable to set graphics toolkit to qt. Using default');
+                end
+            elseif( any(strcmp(tkts,'gnuplot')) )
+                try
+                    graphics_toolkit('gnuplot');
+                    msg2 = sprintf('Using graphics toolkit: qt\n');
+                catch
+                    warning('Unable to set graphics toolkit to gnuplot. Using default');
+                end
+            elseif( any(strcmp(tkts,'fltk')) )
+                try
+                    graphics_toolkit('fltk');
+                    msg2 = sprintf('Using graphics toolkit: fltk\n');
+                catch
+                    warning('Unable to set graphics toolkit to fltk. Using default');
+                end
+            else
+                warning('Unable to auto-detect graphics toolkit');
+            end
+        end
+    end
+end
 
 if(~opt.quiet)
     if(exist('msg1','var'))
