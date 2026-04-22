@@ -86,7 +86,13 @@ if(isunix)
             blasflags = {'-D_SYSTEM_OPENBLAS_BUILD_','-D_USE_OPENBLAS_THREAD_CONTROL'};
         case 3,
             % Locally compiled OpenBLAS, single-thread with locks
-            suffix = check_local_openblas_available(path0,'single-thread');
+            lines = get_BLAS_config(path0);
+            if(strcmp(lines.LOCAL_OPENBLAS_BUILD_WARNING,'no'))
+                wrnflag = false;
+            else
+                wrnflag = true;
+            end
+            suffix = check_local_openblas_available(path0,'single-thread',wrnflag);
             blaslinks = { sprintf('-lopenblas_%s',suffix), sprintf('-L%s/openblas-%s/lib',path0,suffix), sprintf('-Wl,-rpath=%s/openblas-%s/lib',path0,suffix) };
             blasflags = {'-D_LOCAL_OPENBLAS_BUILD_', sprintf('-I %s/openblas-%s/include',path0,suffix) };
         case 4,
@@ -501,6 +507,7 @@ end
 lines.GCC_FLAGS = '';
 lines.BLAS_CONFIG = '';
 lines.LOCAL_OPENBLAS_SUFFIX = '';
+lines.LOCAL_OPENBLAS_BUILD_WARNING = '';
 lines.MKL_ROOT = '';
 lines.MKL_REDIST = '';
 % --------
@@ -551,6 +558,7 @@ fprintf(fid,'## Choose a BLAS implementation, one of netlib | openblas | openbla
 fprintf(fid,'BLAS_CONFIG=openblas-local\n');
 fprintf(fid,'## Only useful if openblas-local is chosen:\n');
 fprintf(fid,'LOCAL_OPENBLAS_SUFFIX=local\n');
+fprintf(fid,'LOCAL_OPENBLAS_BUILD_WARNING=yes\n');
 fprintf(fid,'## Only useful if mkl is chosen:\n');
 fprintf(fid,'### Intel''s MKL root, where bin, lib and include are:\n');
 fprintf(fid,'#MKL_ROOT=/opt/intel/mkl\n');
@@ -560,7 +568,7 @@ fclose(fid);
 end
 
 % =================================================================================================================
-function suffix = check_local_openblas_available(path0,opts)
+function suffix = check_local_openblas_available(path0,opts,wrnflag)
 suffix    = get_BLAS_suffix(path0);
 available = true;
 available = available && (   exist( sprintf('%s/openblas-%s/lib/libopenblas_%s.so',path0,suffix,suffix), 'file' )   ~=   0   );
@@ -568,29 +576,33 @@ available = available && (   exist( sprintf('%s/openblas-%s/include/cblas.h',pat
 available = available && (   exist( sprintf('%s/openblas-%s/include/lapacke.h',path0,suffix), 'file' )   ~=   0   );
 
 if(~available)
-    clc;
-    fprintf(1,'The build option you have chosen via config.octave means\n');
-    fprintf(1,'that the mex files will be linked against a local, non-\n');
-    fprintf(1,'threaded version of OpenBLAS. However, this local version is\n');
-    fprintf(1,'not available. I will try now to download, compile, and locally\n');
-    fprintf(1,'install it for you. This process should be transparent for you,\n');
-    fprintf(1,'but it might take a while. Please make sure you have the\n');
-    fprintf(1,'following software installed:\n');
-    fprintf(1,'   - git \n');
-    fprintf(1,'   - gcc and g++ \n');
-    fprintf(1,'   - gfortan or alike\n');
-    fprintf(1,'In case this fails, please set some other value of BLAS_MODE\n');
-    fprintf(1,'and try again (help makefile_mexcode_octave for details)\n\n');
-    fprintf(1,'[PRESS ENTER to go ahead]\n');
-    pause;
+    if(wrnflag)
+        clc;
+        fprintf(1,'The build option you have chosen via config.octave means\n');
+        fprintf(1,'that the mex files will be linked against a local, non-\n');
+        fprintf(1,'threaded version of OpenBLAS. However, this local version is\n');
+        fprintf(1,'not available. I will try now to download, compile, and locally\n');
+        fprintf(1,'install it for you. This process should be transparent for you,\n');
+        fprintf(1,'but it might take a while. Please make sure you have the\n');
+        fprintf(1,'following software installed:\n');
+        fprintf(1,'   - git \n');
+        fprintf(1,'   - gcc and g++ \n');
+        fprintf(1,'   - gfortan or alike\n');
+        fprintf(1,'In case this fails, please set some other value of BLAS_MODE\n');
+        fprintf(1,'and try again (help makefile_mexcode_octave for details)\n\n');
+        fprintf(1,'[PRESS ENTER to go ahead]\n');
+        pause;
+    end
     status = system ( sprintf('bash %s/build_local_openblas.sh %s %s',path0,opts,suffix) );
     if(status==0)
-        fprintf('\nSUCCEEDED!!!\n');
+        fprintf('\nSUCCEEDED to build local OpenBLAS!!!\n');
     else
-        fprintf('\nFAILED\n');
+        error('Failed to build local OpenBLAS, mex files won''t be generated');
     end
-    fprintf(1,'[PRESS ENTER to go ahead]\n');
-    pause;
+    if(wrnflag)
+        fprintf(1,'[PRESS ENTER to go ahead]\n');
+        pause;
+    end
 end
 
 end
