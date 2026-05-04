@@ -408,6 +408,12 @@ end
 
 % =================================================================================================================
 function build_my_mex_module(module)
+% Check if the module already exists:
+if( exist([module.dest,'/',module.name,'.',mexext],'file') == 3 )
+    % It alrady exists
+    fprintf(1,'%s already exists [SKIP BUILD]. Clean the module first to re-build\n',module.name);
+    return;
+end
 cwd = pwd;
 cd(module.src);
 if(~ispc)
