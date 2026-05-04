@@ -414,6 +414,10 @@ if( exist([module.dest,'/',module.name,'.',mexext],'file') == 3 )
     fprintf(1,'%s already exists [SKIP BUILD]. Clean the module first to re-build\n',module.name);
     return;
 end
+% Create destination folder if necessary:
+if( exist(module.dest,'dir')~=7 )
+    mkdir(module.dest);
+end
 cwd = pwd;
 cd(module.src);
 if(~ispc)
