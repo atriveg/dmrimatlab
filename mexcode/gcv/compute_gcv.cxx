@@ -12,7 +12,6 @@
  *========================================================*/
 
 #include "mex.h"
-//#include "matrix.h"
 #include "math.h"
 
 #include "compute_gcv.h"
@@ -95,12 +94,7 @@ int computeGCV( const BufferType Phi,
     lambda = lambda0;
     cost   = 0.0f;
     int result = 1;
-#ifdef OCTAVE_BUILD
-    // For some reason, dgemm crashes for both OpenBLAS and Netlib's BLAS when
-    // it is called with its second argument tranposed. Hence, we will store
-    // here Phi^T (computed only once) and use the regular call to dgemm:
-    mataux::transposeMxArray( Phi, params->Phi_T, neqs, NR );
-#endif
+
     for( unsigned int i=0; i<params->maxvals; ++i ){
         //-------------------------------------------------------------------
         // Compute first the matrix to invert:
@@ -130,14 +124,7 @@ int computeGCV( const BufferType Phi,
         //-------------------------------------------------------------------
         // Create the big matrix used to test the GCV cost
         mataux::multiplyMxArrays( Phi, params->Pinv, params->R, neqs, NR, NR ); // neqs x NR
-#ifdef OCTAVE_BUILD
-        // For some reason, dgemm crashes for both OpenBLAS and Netlib's BLAS when
-        // it is called with its second argument tranposed. Hence, we will call
-        // dgemm without transposed matrixes:
-        mataux::multiplyMxArrays( params->R, params->Phi_T, params->S, neqs, NR, neqs ); // neqs x neqs
-#else
         mataux::multiplyMxArraysTranspose( params->R, Phi, params->S, neqs, NR, neqs ); // neqs x neqs
-#endif
         for( IndexType r=0; r<neqs; ++r ) // Subtract the identity matrix; neqs x neqs
             params->S[r+r*neqs] -= 1;
         //-------------------------------------------------------------------
