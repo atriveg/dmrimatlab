@@ -78,7 +78,7 @@ if(isunix)
     switch(BLAS_MODE)
         case 1,
             % Netlib's BLAS, needs cblas and lapacke packages
-            blaslinks = {'-lcblas','-llapack'};
+            blaslinks = {'-lblas','-llapack'};
             blasflags = {'-D_SYSTEM_BLAS_BUILD_'};
         case 2,
             % System-wide OpenBLAS, needs openblas package

@@ -10,24 +10,30 @@
 #ifndef _matrixCalculus_h_
 #define _matrixCalculus_h_
 
+#include <string.h>
 #include "mexToMathsTypes.h"
 
 #ifdef OCTAVE_BUILD
     #if defined(_SYSTEM_BLAS_BUILD_)
-        #include "cblas.h"
-        #include "lapack.h"
+        #include "./include/blas.h"
+        #include "./include/lapack.h"
     #elif defined(_SYSTEM_OPENBLAS_BUILD_)
+        #include "./include/blas.h"
         #include "openblas/cblas.h"
-        #include "openblas/lapacke.h"
+        #include "openblas/lapack.h"
         #ifndef _USE_OPENBLAS_THREAD_CONTROL
             #define _USE_OPENBLAS_THREAD_CONTROL
         #endif
     #elif defined(_LOCAL_OPENBLAS_BUILD_)
+        #include "./include/blas.h"
         #include "cblas.h"
         #include "lapack.h"
     #elif defined(_MKL_BLAS_BUILD_)
         #include "mkl_blas.h"
         #include "mkl_lapack.h"
+        #ifndef _USE_MKL_THREAD_CONTROL
+            #define _USE_MKL_THREAD_CONTROL
+        #endif
     #else
         #error "Unknown BLAS implementation"
     #endif
@@ -36,27 +42,23 @@
     #include "lapack.h"
 #endif
 
-#include <string.h>
-
 #ifdef OCTAVE_BUILD
-    #if defined(_SYSTEM_BLAS_BUILD_)
-        typedef CBLAS_INT BLAS_INT;
+    #if defined(_SYSTEM_BLAS_BUILD_) || defined(_SYSTEM_OPENBLAS_BUILD_) || defined(_LOCAL_OPENBLAS_BUILD_)
         #define LAPACKCALLFCN(FUNC) FUNC##_
-        #define BLASCALLFCN(FUNC) cblas_##FUNC
-    #elif defined(_SYSTEM_OPENBLAS_BUILD_)
-        typedef blasint BLAS_INT;
-        #define LAPACKCALLFCN(FUNC) FUNC##_
-        #define BLASCALLFCN(FUNC) cblas_##FUNC
-    #elif defined(_LOCAL_OPENBLAS_BUILD_)
-        typedef blasint BLAS_INT;
-        #define LAPACKCALLFCN(FUNC) FUNC##_
-        #define BLASCALLFCN(FUNC) cblas_##FUNC
+        #define BLASCALLFCN(FUNC) FUNC##_
     #elif defined(_MKL_BLAS_BUILD_)
         typedef MKL_INT BLAS_INT;
         #define LAPACKCALLFCN(FUNC) FUNC
         #define BLASCALLFCN(FUNC) FUNC
     #else
         #error "Unknown BLAS implementation"
+    #endif
+    #ifndef BLAS_INT
+        #if defined(blasint)
+            typedef blasint BLAS_INT;
+        #else
+            typedef int BLAS_INT;
+        #endif
     #endif
 #else
     typedef ptrdiff_t BLAS_INT;

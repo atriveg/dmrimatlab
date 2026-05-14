@@ -46,11 +46,7 @@ namespace mataux
 #ifdef _NO_BLAS_CALLS
                 for( unsigned long pos=0; pos<M*N; ++pos ){ in[pos]*=op_; }
 #else
-#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
-                BLASCALLFCN(dscal)( N_, op_, in, inc_ );
-#else
                 BLASCALLFCN(dscal)( &N_, &op_, in, &inc_ );
-#endif
 #endif
                 break;
             case MULTIPLY:
@@ -58,11 +54,7 @@ namespace mataux
 #ifdef _NO_BLAS_CALLS
                 for( unsigned long pos=0; pos<M*N; ++pos ){ in[pos]*=op_; }
 #else
-#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
-                BLASCALLFCN(dscal)( N_, op_, in, inc_ );
-#else
                 BLASCALLFCN(dscal)( &N_, &op_, in, &inc_ );
-#endif
 #endif
                 break;
         }
@@ -108,17 +100,6 @@ namespace mataux
         BLAS_INT P_ = (BLAS_INT)P;
         ElementType alpha = 1.0f;
         ElementType beta  = 0.0f;
-#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
-        BLASCALLFCN(dgemm)(
-            CblasColMajor, CblasNoTrans, CblasNoTrans,
-            M_, P_, N_,
-            alpha,
-            in1, M_,
-            in2, N_,
-            beta,
-            out, M_
-        );
-#else
         BLASCALLFCN(dgemm)(
             "N",    // First matrix is not transposed
             "N",    // Second matrix is not transposed
@@ -134,7 +115,6 @@ namespace mataux
             out,    // The output matrix
             &M_     // Leading dimension of the output matrix
         );
-#endif
 #endif
     }
 
@@ -184,18 +164,6 @@ namespace mataux
         BLAS_INT P_ = (BLAS_INT)P;
         ElementType alpha = 1.0f;
         ElementType beta  = 0.0f;
-
-#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
-        BLASCALLFCN(dgemm)(
-            CblasColMajor, CblasNoTrans, CblasTrans,
-            M_, P_, N_,
-            alpha,
-            in1, M_,
-            in2, N_,
-            beta,
-            out, M_
-        );
-#else
         BLASCALLFCN(dgemm)(
             "N",    // First matrix is not transposed
             "T",    // Second matrix is transposed
@@ -206,12 +174,11 @@ namespace mataux
             in1,    // First matrix
             &M_,    // Leading dimension of the first matrix
             in2,    // Second matrix
-            &N_,    // Leading dimension of the second matrix
+            &P_,    // Leading dimension of the second matrix
             &beta,  // Scale applied to the output (not used)
             out,    // The output matrix
             &M_     // Leading dimension of the output matrix
         );
-#endif
 #endif
     }
     
@@ -248,21 +215,10 @@ namespace mataux
             }
         }
 #else
-        BLAS_INT M_ = (ptrdiff_t)M;
-        BLAS_INT N_ = (ptrdiff_t)N;
+        BLAS_INT M_ = (BLAS_INT)M;
+        BLAS_INT N_ = (BLAS_INT)N;
         ElementType alpha = 1.0f;
         ElementType beta  = 0.0f;
-
-#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
-        BLASCALLFCN(dsyrk)(
-            CblasColMajor, CblasUpper, CblasTrans,
-            N_, M_,
-            alpha,
-            in, M_,
-            beta,
-            out, N_
-        );
-#else
         BLASCALLFCN(dsyrk)(
             "U",    // Upper part computed
             "T",    // Compute in^T*in instead of in*in^T
@@ -275,7 +231,6 @@ namespace mataux
             out,    // Output matrix
             &N_     // Leading dimension of the output
         );
-#endif
 #endif
         // This is a generic function, and we don't know if the
         // lower part of out will be further used. Hence, we must
@@ -585,11 +540,7 @@ namespace mataux
 #else
         BLAS_INT M_    = (BLAS_INT)M;
         BLAS_INT unit_ = 1;
-#if defined(OCTAVE_BUILD) && !defined(_MKL_BLAS_BUILD_)
-        norm = BLASCALLFCN(ddot)( M_, in, unit_, in, unit_ );
-#else
         norm = BLASCALLFCN(ddot)( &M_, in, &unit_, in, &unit_ );
-#endif
 #endif
         return norm;
     }
