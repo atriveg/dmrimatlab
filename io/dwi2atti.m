@@ -62,7 +62,7 @@ bsidx   = (abs(bi0)<opt.b0th);   % baselines
 gridx   = ~bsidx;                % gradients
 
 if(all(gridx))
-    warning( sprintf( 'DWI2ATTI: Cannot find baselines in your data set (min. b-value: %1.1f). Try changing ''b0th''.', min(abs(bi0)) ) );
+    warning( sprintf( 'DWI2ATTI: Cannot find baselines in your data set because the min b-value (%1.1f) < b0th (%1.1f). Try changing ''b0th''.', min(abs(bi0)), opt.b0th ) );
 end
 
 baseline = mean( dwi(:,:,:,bsidx), 4 ); % MxNxP
