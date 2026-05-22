@@ -61,6 +61,10 @@ modules = sqrt(sum(gi0.*gi0,2)); % Gx1
 bsidx   = (abs(bi0)<opt.b0th);   % baselines
 gridx   = ~bsidx;                % gradients
 
+if(all(gridx))
+    warning( sprintf( 'DWI2ATTI: Cannot find baselines in your data set (min. b-value: %1.1f). Try changing ''b0th''.', min(abs(bi0)) ) );
+end
+
 baseline = mean( dwi(:,:,:,bsidx), 4 ); % MxNxP
 mask     = (baseline>1.0e-6);
 baseline(~mask) = inf;
