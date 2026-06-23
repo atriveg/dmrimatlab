@@ -79,7 +79,7 @@ nii.hdr.dime.datatype = code;
 nii.hdr.dime.bitpix = bpix;
 nii.hdr.dime.slice_start = 0;
 nii.hdr.dime.pixdim = compute_pix_dims(nrrd.ijkToLpsTransform);
-% Directly taken from the HCP-MGH data (what the +4 comes from?):
+% Directly taken from the HCP-MGH data (where the +4 comes from?):
 nii.hdr.dime.vox_offset = nii.hdr.hk.sizeof_hdr + 4;
 nii.hdr.dime.scl_slope = 1; % *1 linear scaling
 nii.hdr.dime.scl_inter = 0; % +0 linear scaling

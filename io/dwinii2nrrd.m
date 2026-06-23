@@ -273,7 +273,7 @@ fprintf(fid,'# http://teem.sourceforge.net/nrrd/format.html\n');
 % Create/override mandatory fields
 
 img.metaData.type = getMetaType(class(img.pixelData));
-img.metaData.dimension = length(size(img.pixelData)); % ndim is not defined for int16 arrays
+img.metaData.dimension = sprintf( '%d', max(length(size(img.pixelData)),3) ); % ndims is not defined for int16 arrays
 if ~isfield(img.metaData,'space')
     img.metaData.space = 'left-posterior-superior';
 end
@@ -284,9 +284,9 @@ if isfield(img,'ijkToLpsTransform')
     img.metaData.space_origin = sprintf('(%f,%f,%f)',reshape(axes_origin,1,3));
     axes_directions = img.ijkToLpsTransform(1:3,1:3);
     switch (img.metaData.dimension)
-        case {3}
+        case '3'
             img.metaData.space_directions=sprintf('(%f,%f,%f) (%f,%f,%f) (%f,%f,%f)',reshape(axes_directions,1,9));
-        case {4}
+        case '4'
             img.metaData.space_directions=sprintf('none (%f,%f,%f) (%f,%f,%f) (%f,%f,%f)',reshape(axes_directions,1,9));
         otherwise
             assert(false, 'Unsupported pixel data dimension')
@@ -295,9 +295,9 @@ end
 
 if ~isfield(img.metaData,'space_directions')
     switch (img.metaData.dimension)
-        case {3}
+        case '3'
             img.metaData.space_directions = '(1,0,0) (0,1,0) (0,0,1)';
-        case {4}
+        case '4'
             img.metaData.space_directions = 'none (1,0,0) (0,1,0) (0,0,1)';
         otherwise
             assert(false, 'Unsupported pixel data dimension')
@@ -305,9 +305,9 @@ if ~isfield(img.metaData,'space_directions')
 end
 
 switch (img.metaData.dimension)
-    case {3}
+    case '3'
         img.metaData.kinds='domain domain domain';
-    case {4}
+    case '4'
         if(~isfield(img.metaData,'kinds'))
             img.metaData.kinds='list domain domain domain';
         end
@@ -366,7 +366,9 @@ fprintf(fid,'\n');
 
 if(NHDR)
     fclose(fid);
-    fid = fopen(img.metaData.data_file,'w');
+    [route,name,ext] = fileparts(outputFilename);
+    fid = fopen( fullfile(route,img.metaData.data_file), 'w' );
+    assert( fid>=0, sprintf('Cannot open %s for writting',img.metaData.data_file) );
 end
 
 % Write pixel data

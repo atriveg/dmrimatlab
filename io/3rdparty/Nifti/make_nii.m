@@ -157,7 +157,7 @@ function hdr = make_header(dims, voxel_size, origin, datatype, ...
    hdr.hk   = header_key;
    hdr.dime = image_dimension(dims, voxel_size, datatype, maxval, minval);
    hdr.hist = data_history(origin, descrip);
-    
+
    return;					% make_header
 
 
@@ -234,7 +234,7 @@ function dime = image_dimension(dims, voxel_size, datatype, maxval, minval)
 
 %---------------------------------------------------------------------
 function hist = data_history(origin, descrip)
-   
+
    hist.descrip = descrip;
    hist.aux_file = 'none';
    hist.qform_code = 0;
@@ -251,6 +251,6 @@ function hist = data_history(origin, descrip)
    hist.intent_name = '';
    hist.magic = '';
    hist.originator = origin;
-   
+
    return;					% data_history
 
