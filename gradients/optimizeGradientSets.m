@@ -14,12 +14,12 @@ function gi = optimizeGradientSets(gi,sets,varargin)
 %
 %     - Let G_1, G_2, ..., G_N be the N sets of gradient directions.
 %     - Let G_{i1,i2,...,iK} = Union(G_i1,G_i2,...,G_iK).
-%     - Let y_{n,j} be each of the (N over n) combinations of n elements 
+%     - Let y_{n,j} be each of the (N over n) combinations of n elements
 %       taken from 1,2,...,N.
 %
 %    Then, from the definition in eq. [1], we minimize:
 %
-%      C = sum_{n=1..N} 
+%      C = sum_{n=1..N}
 %               w(n) * sum_{j=1..(N over n)} Q[G_{y_{n,j}}]/sc_{n,j} [2]
 %
 %    i.e.:
@@ -32,7 +32,7 @@ function gi = optimizeGradientSets(gi,sets,varargin)
 %    The scales sc_{n,j} are internally computed so that all possible
 %    combinations of sets have roughly the same impact in the overall
 %    cost regardless of the total number of gradients they include.
-%    
+%
 %    This function can be used for two purposes: (1) designing multi-shell
 %    sampling schemes for which each shell fills the gaps in the
 %    orientations space not covered by the others or (2) designing
@@ -48,7 +48,7 @@ function gi = optimizeGradientSets(gi,sets,varargin)
 %                         'verbose', true );
 %
 %       (Taken from test_spiralPhyllotaxis.m, you may run the script to
-%       visually check the results. See also test_spiralPhyllotaxis2.m 
+%       visually check the results. See also test_spiralPhyllotaxis2.m
 %       and test_spiralPhyllotaxis3.m).
 %
 %
@@ -85,7 +85,7 @@ function gi = optimizeGradientSets(gi,sets,varargin)
 %
 %       iters: 1x1 double, maximum number of iterations for the
 %          optimization (default: 1000)
-%       lambda: 1x1 double, Levenberg-Marquardt regularization term in the 
+%       lambda: 1x1 double, Levenberg-Marquardt regularization term in the
 %          Newton-Raphson step. This is just the initial value, it is
 %          adaptively updated as the iterations proceed (default: 10.0)
 %       delta: maximum allowed change in the parameters before the
@@ -145,7 +145,7 @@ if(opt.nocomb)
     end
 else
     for s=1:S
-        combs{s,1} = combnk(1:S,s);
+        combs{s,1} = grads_combnk(1:S,s);
     end
 end
 % ----------------------------------------------------------------------------
@@ -209,7 +209,7 @@ for it=1:opt.iters
                 cti = cos(ti(gidx));
                 sti = sin(ti(gidx));
                 cpi = cos(pj(gidx));
-                spi = sin(pj(gidx));                
+                spi = sin(pj(gidx));
                 % Compute the angles between each pair of gradients:
                 [Caij,Saij] = compute_solid_angles_from_spherical(cti,sti,cpi,spi);
                 % Compute the overall cost:
@@ -267,7 +267,7 @@ for it=1:opt.iters
             end
         end
     end
-    % Check:    
+    % Check:
     if(Qn<=Q)
         ti    = tin;
         pj    = pin;
@@ -290,9 +290,11 @@ end
 if(opt.verbose)
     fprintf(1,repmat('\b',[1,txtlength]));
 end
-    
-gi = [ sin(ti).*cos(pj), sin(ti).*sin(pj), cos(ti) ];
 
+gi = [ sin(ti).*cos(pj), sin(ti).*sin(pj), cos(ti) ];
+end
+
+% --------------------------------------------------------------------------------------
 function Q = compute_energy_from_angles(Saij,E)
 %
 % Saij: GxG, Saij(i,j) = Saij(j,i) = sin(alpha_ij)
@@ -300,7 +302,9 @@ function Q = compute_energy_from_angles(Saij,E)
 Q = 1./(Saij.^E);
 Q(logical(eye(size(Saij,1)))) = 0;
 Q = sum(Q(:))/2;
+end
 
+% --------------------------------------------------------------------------------------
 function DQ = compute_energy_gradient_from_angles(cti,sti,cpi,spi,Caij,Saij,E,numerical)
 %
 % cti: Gx1, cos(thetai)
@@ -339,7 +343,9 @@ else
     DQ2   = -(sti*sti').*(spi*cpi'-cpi*spi');
     DQ    = sum([Gfact.*DQ1;Gfact.*DQ2],2);
 end
+end
 
+% --------------------------------------------------------------------------------------
 function DDQ = compute_energy_hessian_from_angles(cti,sti,cpi,spi,Caij,Saij,E,numerical)
 %
 % cti: Gx1, cos(thetai)
@@ -416,7 +422,9 @@ else
     %%% -----
     DDQ = [H11_1,H12_1;H12_1',H22_1]+[H11_2,H12_2;H12_2',H22_2];
 end
+end
 
+% --------------------------------------------------------------------------------------
 function [Caij,Saij] = compute_solid_angles_from_spherical(cti,sti,cpi,spi)
 %
 % cti: Gx1, cos(thetai)
@@ -425,7 +433,59 @@ function [Caij,Saij] = compute_solid_angles_from_spherical(cti,sti,cpi,spi)
 % spi: Gx1, sin(phii)
 Caij = (sti*sti').*(cpi*cpi'+spi*spi') + cti*cti'; % GxG, sym.
 Saij = sqrt(1-min(Caij.*Caij,1)); % GxG, sym
+end
 
+
+% --------------------------------------------------------------------------------------
+% --------------------------------------------------------------------------------------
+% Based on Soren Hauberg's implementation for Octave. Note combnk is not a core function
+% in Octave but a part of the statistics package, hence we need to actually implement it
+% to avoid this dependence:
+% --------------------------------------------------------------------------------------
+function retval = grads_combnk (data, k)
+% Simple checks
+n = numel (data);
+if (k == 0 || k > n)
+    retval = resize (data, 0, k);
+elseif (k == n)
+    retval = data(:).';
+else
+    retval = grads__combnk__rec(data, k);
+end
+
+% For some odd reason Matlab seems to treat strings differently compared to
+% other data-types...
+if (ischar (data))
+    retval = flipud (retval);
+end
+end
+
+% --------------------------------------------------------------------------------------
+function retval = grads__combnk__rec(data, k)
+% Recursion stopping criteria
+if (k == 1)
+    retval = data(:);
+else
+    % Process data
+    n = numel (data);
+    if(iscell (data))
+        retval = {};
+    else
+        retval = [];
+    end
+    for j = 1:n
+        C = grads__combnk__rec(data((j+1):end), k-1);
+        C = cat ( 2, repmat(data(j),size(C,1),1), C );
+        if (~isempty (C))
+            if (isempty (retval))
+                retval = C;
+            else
+                retval = [retval; C]; %#ok<AGROW>
+            end
+        end
+    end
+end
+end
 
 
 
