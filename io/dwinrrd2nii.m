@@ -22,6 +22,10 @@ catch ME
     rethrow(ME);
 end
 
+if(~isfield(nrrd.metaData,'space'))
+    nrrd.metaData.space = 'left-posterior-superior';
+end
+
 % Create nii structure:
 [~,name,~] = fileparts(nrrdfile);
 nii = create_nii_struct(nrrd,name);
@@ -46,6 +50,9 @@ if(~isempty(path))
     bvalfile = sprintf('%s%s%s',path,filesep,bvalfile);
 end
 [~,gi,bi] = slicervol2dwi(nrrd);
+% Note: in case the NRRD file is not using RAS, we need to correct
+% the gradient directions:
+gi = correct_non_RAS_grads(gi,nrrd.metaData.space);
 save('-ascii',bvecfile,'gi');
 save('-ascii',bvalfile,'bi');
 end
@@ -213,6 +220,38 @@ delta = sqrt(sum(delta.*delta,1));
 % volume it is set to 8.8, but there seems to be not a proper documentation
 % for that:
 pixdim = [1,delta,8.8,0,0,0];
+end
+
+% -------------------------------------------------------------------------
+function gi = correct_non_RAS_grads(gi,space)
+if(length(space)>3)
+    ds = strsplit( space, '-' );
+    assert(length(ds)==3,'Wrong space field in the NRRD header');
+    dx = lower(ds{1}(1));
+    dy = lower(ds{2}(1));
+    dz = lower(ds{3}(1));
+elseif(length(space)==3)
+    dx = lower(space(1));
+    dy = lower(space(2));
+    dz = lower(space(3));
+else
+    error('Wrong space field in the NRRD header');
+end
+% Now, dx can be either 'r' or 'l'
+% Now, dy can be either 'a' or 'p'
+% Now, dz can be either 's' or 'i'
+% Nifti assumes RAS world coordinates, hence we need to check each row of
+% the homogeneous matrix to make sure it is consistent with the space used
+% in the NRRD file:
+if(dx~='r') % Need to correct
+    gi(:,1) = -gi(:,1);
+end
+if(dy~='a') % Need to correct
+    gi(:,2) = -gi(:,2);
+end
+if(dz~='s') % Need to correct
+    gi(:,3) = -gi(:,3);
+end
 end
 
 % -------------------------------------------------------------------------

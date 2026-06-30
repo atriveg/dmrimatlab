@@ -22,7 +22,8 @@ function [dwi,gi,bi] = slicervol2dwi(img)
 dwi = double(permute(img.pixelData,[2,3,4,1])); % MxNxPx(G+B)
 [~,~,~,G] = size(dwi);
 
-gi = zeros(G,3);
+gi     = zeros(G,3);
+mframe = eye(3);
 fields = fieldnames(img.metaData);
 for f=1:numel(fields)
     field = fields{f};
@@ -38,6 +39,9 @@ for f=1:numel(fields)
         if(strcmp(field,'DWMRI_b_value'))
             bi = str2double(img.metaData.(field));
         end
+    end
+    if(strcmp(field,'measurement_frame'))
+        mframe = reshape(sscanf(img.metaData.measurement_frame,'(%f,%f,%f) (%f,%f,%f) (%f,%f,%f)'),3,3);
     end
 end
 
@@ -58,3 +62,6 @@ bi      = bi*(modules./maxmod).*(modules./maxmod);
 bsidx   = (modules<0.01);      % baselines
 gi(bsidx,:) = 0;
 bi(bsidx,:) = 0;
+
+% Correct the gradient directions with the measurement frame:
+gi      = gi*(mframe');
