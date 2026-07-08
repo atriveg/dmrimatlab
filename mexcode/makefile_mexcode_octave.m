@@ -106,8 +106,8 @@ if(isunix)
             % Use a custom implementation of BLAS and LAPACK
             customblas   = get_custom_BLAS(path0);
             customlapack = get_custom_LAPACK(path0);
-            [p1,~,~]     = fielparts(customblas);
-            [p2,~,~]     = fielparts(customlapack);
+            [p1,~,~]     = fileparts(customblas);
+            [p2,~,~]     = fileparts(customlapack);
             blaslinks    = { sprintf('-L%s',p1), sprintf('-L%s',p2), sprintf('-l%s',customblas), sprintf('-l%s',customlapack) };
             blasflags    = {'-D_SYSTEM_BLAS_BUILD_'};
         case 6
