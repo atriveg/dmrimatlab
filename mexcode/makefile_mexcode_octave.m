@@ -76,15 +76,15 @@ if(isunix)
     setenv( 'CXXFLAGS', get_GCC_flags(path0) );
     trlinks   = {'-lpthread'};
     switch(BLAS_MODE)
-        case 1,
+        case 1
             % Netlib's BLAS, needs cblas and lapacke packages
             blaslinks = {'-lblas','-llapack'};
             blasflags = {'-D_SYSTEM_BLAS_BUILD_'};
-        case 2,
+        case 2
             % System-wide OpenBLAS, needs openblas package
             blaslinks = {'-lopenblas'};
             blasflags = {'-D_SYSTEM_OPENBLAS_BUILD_','-D_USE_OPENBLAS_THREAD_CONTROL'};
-        case 3,
+        case 3
             % Locally compiled OpenBLAS, single-thread with locks
             lines = get_BLAS_config(path0);
             if(strcmp(lines.LOCAL_OPENBLAS_BUILD_WARNING,'no'))
@@ -95,14 +95,22 @@ if(isunix)
             suffix = check_local_openblas_available(path0,'single-thread',wrnflag);
             blaslinks = { sprintf('-lopenblas_%s',suffix), sprintf('-L%s/openblas-%s/lib',path0,suffix), sprintf('-Wl,-rpath=%s/openblas-%s/lib',path0,suffix) };
             blasflags = {'-D_LOCAL_OPENBLAS_BUILD_', sprintf('-I %s/openblas-%s/include',path0,suffix) };
-        case 4,
+        case 4
             % Use Intel MKL
             mklroot = get_MKL_root(path0);
             redist  = get_MKL_redist(path0);
             blaslinks = { sprintf('-L%s/lib/intel64',mklroot), sprintf('-L%s',redist), sprintf('-Wl,-rpath=%s/lib/intel64',mklroot), sprintf('-Wl,-rpath=%s',redist), ...
                 '-lmkl_intel_lp64', '-lmkl_intel_thread', '-lmkl_core', '-liomp5', '-lpthread', '-lm', '-ldl' };
             blasflags = {'-D_MKL_BLAS_BUILD_','-D_USE_MKL_THREAD_CONTROL', '-m64', '-Wl,--no-as-needed', sprintf('-I"%s/include"',mklroot),  };
-        case 5,
+        case 5
+            % Use a custom implementation of BLAS and LAPACK
+            customblas   = get_custom_BLAS(path0);
+            customlapack = get_custom_LAPACK(path0);
+            [p1,~,~]     = fielpartd(customblas);
+            [p2,~,~]     = fielpartd(customlapack);
+            blaslinks    = { sprintf('-L%s',p1), sprintf('-L%s',p2), sprintf('-l%s',customblas), sprintf('-l%s',customlapack) };
+            blasflags    = {'-D_SYSTEM_BLAS_BUILD_'};
+        case 6
             % System-wide OpenBLAS, avoid direct calls to BLAS functions (very inefficient)
             blaslinks = {'-lopenblas'};
             blasflags = {'-D_SYSTEM_OPENBLAS_BUILD_','-D_NO_BLAS_CALLS'};
@@ -462,8 +470,10 @@ switch(lower(lines.BLAS_CONFIG))
         BLAS_MODE = 3;
     case 'mkl'
         BLAS_MODE = 4;
+    case 'custom'
+        BLAS_MODE = 5;
     otherwise
-        error(sprintf('Unable to parse option <%s> in config.octave. Choose one of [ netlib | openblas | openblas-local | mkl ] or delete the config file to use defaults',lines.BLAS_CONFIG));
+        error(sprintf('Unable to parse option <%s> in config.octave. Choose one of [ netlib | openblas | openblas-local | mkl | custom ] or delete the config file to use defaults',lines.BLAS_CONFIG));
 end
 end
 
@@ -506,6 +516,26 @@ function redist = get_MKL_redist(path0)
 end
 
 % =================================================================================================================
+function custom_blas = get_custom_BLAS(path0)
+    lines = get_BLAS_config(path0);
+    if(isempty(lines.CUSTOM_BLAS))
+        error('Cannot find the full path to your custom BLAS library');
+    else
+        custom_blas = lines.CUSTOM_BLAS;
+    end
+end
+
+% =================================================================================================================
+function custom_lapack = get_custom_LAPACK(path0)
+    lines = get_BLAS_config(path0);
+    if(isempty(lines.CUSTOM_LAPACK))
+        error('Cannot find the full path to your custom LAPACK library');
+    else
+        custom_lapack = lines.CUSTOM_LAPACK;
+    end
+end
+
+% =================================================================================================================
 function lines = get_BLAS_config(path0)
 % --------
 config = sprintf('%s/config.octave',path0);
@@ -520,6 +550,8 @@ lines.LOCAL_OPENBLAS_SUFFIX = '';
 lines.LOCAL_OPENBLAS_BUILD_WARNING = '';
 lines.MKL_ROOT = '';
 lines.MKL_REDIST = '';
+lines.CUSTOM_BLAS = '';
+lines.CUSTOM_LAPACK = '';
 % --------
 fid = fopen(config,'r');
 str = fgetl(fid);
@@ -574,6 +606,11 @@ fprintf(fid,'### Intel''s MKL root, where bin, lib and include are:\n');
 fprintf(fid,'#MKL_ROOT=/opt/intel/mkl\n');
 fprintf(fid,'### Intel''s MKL redist folder, where libiomp5.so is:\n');
 fprintf(fid,'#MKL_REDIST=/opt/intel/oneapi/compiler/2025.0/lib\n');
+fprintf(fid,'## Only useful if custom is chosen:\n');
+fprintf(fid,'### Full path to BLAS:\n');
+fprintf(fid,'#CUSTOM_BLAS=/usr/lib/x86_64-linux-gnu/libblas.so\n');
+fprintf(fid,'### Full path to LAPACK:\n');
+fprintf(fid,'#CUSTOM_LAPACK=/usr/lib/x86_64-linux-gnu/liblapack.so\n');
 fclose(fid);
 end
 
