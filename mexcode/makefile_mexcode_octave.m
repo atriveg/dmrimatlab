@@ -106,9 +106,9 @@ if(isunix)
             % Use a custom implementation of BLAS and LAPACK
             customblas   = get_custom_BLAS(path0);
             customlapack = get_custom_LAPACK(path0);
-            [p1,n1,e1]   = fileparts(customblas);
-            [p2,n2,e2]   = fileparts(customlapack);
-            blaslinks    = { sprintf('-L%s',p1), sprintf('-L%s',p2), sprintf('-l:%s%s',n1,e1), sprintf('-l:%s%s',n2,e2) };
+            [p1,~,~]     = fileparts(customblas);
+            [p2,~,~]     = fileparts(customlapack);
+            blaslinks    = { sprintf('-L%s',p1), sprintf('-L%s',p2), sprintf('-l%s',customblas), sprintf('-l%s',customlapack) };
             blasflags    = {'-D_SYSTEM_BLAS_BUILD_'};
         case 6
             % System-wide OpenBLAS, avoid direct calls to BLAS functions (very inefficient)
@@ -596,7 +596,7 @@ end
 fprintf(fid,'# This is an automatically generated config file with default values\n');
 fprintf(fid,'## Custom optimization flags for gcc/g++:\n');
 fprintf(fid,'GCC_FLAGS=-DMX_COMPAT_64  -D_GNU_SOURCE -fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -DNDEBUG\n');
-fprintf(fid,'## Choose a BLAS implementation, one of netlib | openblas | openblas-local | mkl | custom:\n');
+fprintf(fid,'## Choose a BLAS implementation, one of netlib | openblas | openblas-local | mkl:\n');
 fprintf(fid,'BLAS_CONFIG=openblas-local\n');
 fprintf(fid,'## Only useful if openblas-local is chosen:\n');
 fprintf(fid,'LOCAL_OPENBLAS_SUFFIX=local\n');
@@ -617,10 +617,7 @@ end
 % =================================================================================================================
 function suffix = check_local_openblas_available(path0,opts,wrnflag)
 suffix    = get_BLAS_suffix(path0);
-available = true;
-available = available && (   exist( sprintf('%s/openblas-%s/lib/libopenblas_%s.so',path0,suffix,suffix), 'file' )   ~=   0   );
-available = available && (   exist( sprintf('%s/openblas-%s/include/cblas.h',path0,suffix), 'file' )   ~=   0   );
-available = available && (   exist( sprintf('%s/openblas-%s/include/lapacke.h',path0,suffix), 'file' )   ~=   0   );
+available = (   exist( sprintf('%s/openblas-%s/lib/libopenblas_%s.so',path0,suffix,suffix), 'file' )   ~=   0   );
 
 if(~available)
     if(wrnflag)
