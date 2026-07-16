@@ -25,9 +25,12 @@
             #define _USE_OPENBLAS_THREAD_CONTROL
         #endif
     #elif defined(_LOCAL_OPENBLAS_BUILD_)
+        #include "openblas_config.h"
         #include "./include/blas.h"
-        #include "cblas.h"
-        #include "lapack.h"
+        #include "./include/lapack.h"
+        #ifndef _USE_OPENBLAS_THREAD_CONTROL
+            #define _USE_OPENBLAS_THREAD_CONTROL
+        #endif
     #elif defined(_MKL_BLAS_BUILD_)
         #include "mkl_blas.h"
         #include "mkl_lapack.h"
