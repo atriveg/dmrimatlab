@@ -31,6 +31,12 @@
         #ifndef _USE_OPENBLAS_THREAD_CONTROL
             #define _USE_OPENBLAS_THREAD_CONTROL
         #endif
+    #elif defined(_LOCAL_BLIS_BUILD_)
+        #include "./include/blas.h"
+        #include "./include/lapack.h"
+        #ifndef _USE_BLIS_THREAD_CONTROL
+            #define _USE_BLIS_THREAD_CONTROL
+        #endif
     #elif defined(_MKL_BLAS_BUILD_)
         #include "mkl_blas.h"
         #include "mkl_lapack.h"
@@ -46,7 +52,7 @@
 #endif
 
 #ifdef OCTAVE_BUILD
-    #if defined(_SYSTEM_BLAS_BUILD_) || defined(_SYSTEM_OPENBLAS_BUILD_) || defined(_LOCAL_OPENBLAS_BUILD_)
+    #if defined(_SYSTEM_BLAS_BUILD_) || defined(_SYSTEM_OPENBLAS_BUILD_) || defined(_LOCAL_OPENBLAS_BUILD_) || defined(_LOCAL_BLIS_BUILD_)
         #define LAPACKCALLFCN(FUNC) FUNC##_
         #define BLASCALLFCN(FUNC) FUNC##_
     #elif defined(_MKL_BLAS_BUILD_)

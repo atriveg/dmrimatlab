@@ -96,13 +96,24 @@ if(isunix)
             blaslinks = { sprintf('-lopenblas_%s',suffix), sprintf('-L%s/openblas-%s/lib',path0,suffix), sprintf('-Wl,-rpath=%s/openblas-%s/lib',path0,suffix) };
             blasflags = {'-D_LOCAL_OPENBLAS_BUILD_', sprintf('-I %s/openblas-%s/include',path0,suffix) };
         case 4
+            % Use BLIS with Netlib's LAPACK
+            lines = get_BLAS_config(path0);
+            if(strcmp(lines.LOCAL_BLIS_BUILD_WARNING,'no'))
+                wrnflag = false;
+            else
+                wrnflag = true;
+            end
+            check_blis_available(path0,wrnflag);
+            blaslinks = { '-lblis', '-llapack', sprintf('-L%s/BLIS/lib',path0), sprintf('-Wl,-rpath=%s/BLIS/lib',path0) };
+            blasflags = {'-D_LOCAL_BLIS_BUILD_'};
+        case 5
             % Use Intel MKL
             mklroot = get_MKL_root(path0);
             redist  = get_MKL_redist(path0);
             blaslinks = { sprintf('-L%s/lib/intel64',mklroot), sprintf('-L%s',redist), sprintf('-Wl,-rpath=%s/lib/intel64',mklroot), sprintf('-Wl,-rpath=%s',redist), ...
                 '-lmkl_intel_lp64', '-lmkl_intel_thread', '-lmkl_core', '-liomp5', '-lpthread', '-lm', '-ldl' };
             blasflags = {'-D_MKL_BLAS_BUILD_','-D_USE_MKL_THREAD_CONTROL', '-m64', '-Wl,--no-as-needed', sprintf('-I"%s/include"',mklroot),  };
-        case 5
+        case 6
             % Use a custom implementation of BLAS and LAPACK
             customblas   = get_custom_BLAS(path0);
             customlapack = get_custom_LAPACK(path0);
@@ -110,7 +121,7 @@ if(isunix)
             [p2,~,~]     = fileparts(customlapack);
             blaslinks    = { sprintf('-L%s',p1), sprintf('-L%s',p2), sprintf('-l%s',customblas), sprintf('-l%s',customlapack) };
             blasflags    = {'-D_SYSTEM_BLAS_BUILD_'};
-        case 6
+        case 7
             % System-wide OpenBLAS, avoid direct calls to BLAS functions (very inefficient)
             blaslinks = {'-lopenblas'};
             blasflags = {'-D_SYSTEM_OPENBLAS_BUILD_','-D_NO_BLAS_CALLS'};
@@ -468,12 +479,14 @@ switch(lower(lines.BLAS_CONFIG))
         BLAS_MODE = 2;
     case 'openblas-local'
         BLAS_MODE = 3;
-    case 'mkl'
+    case 'blis-local';
         BLAS_MODE = 4;
-    case 'custom'
+    case 'mkl'
         BLAS_MODE = 5;
+    case 'custom'
+        BLAS_MODE = 6;
     otherwise
-        error(sprintf('Unable to parse option <%s> in config.octave. Choose one of [ netlib | openblas | openblas-local | mkl | custom ] or delete the config file to use defaults',lines.BLAS_CONFIG));
+        error(sprintf('Unable to parse option <%s> in config.octave. Choose one of [ netlib | openblas | openblas-local | blis-local | mkl | custom ] or delete the config file to use defaults',lines.BLAS_CONFIG));
 end
 end
 
@@ -548,6 +561,7 @@ lines.GCC_FLAGS = '';
 lines.BLAS_CONFIG = '';
 lines.LOCAL_OPENBLAS_SUFFIX = '';
 lines.LOCAL_OPENBLAS_BUILD_WARNING = '';
+lines.LOCAL_BLIS_BUILD_WARNING = '';
 lines.MKL_ROOT = '';
 lines.MKL_REDIST = '';
 lines.CUSTOM_BLAS = '';
@@ -596,11 +610,13 @@ end
 fprintf(fid,'# This is an automatically generated config file with default values\n');
 fprintf(fid,'## Custom optimization flags for gcc/g++:\n');
 fprintf(fid,'GCC_FLAGS=-DMX_COMPAT_64  -D_GNU_SOURCE -fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -DNDEBUG\n');
-fprintf(fid,'## Choose a BLAS implementation, one of netlib | openblas | openblas-local | mkl:\n');
+fprintf(fid,'## Choose a BLAS implementation, one of netlib | openblas | openblas-local | blis-local | mkl | custom:\n');
 fprintf(fid,'BLAS_CONFIG=openblas-local\n');
 fprintf(fid,'## Only useful if openblas-local is chosen:\n');
 fprintf(fid,'LOCAL_OPENBLAS_SUFFIX=local\n');
 fprintf(fid,'LOCAL_OPENBLAS_BUILD_WARNING=yes\n');
+fprintf(fid,'## Only useful if blis is chosen:\n');
+fprintf(fid,'#LOCAL_BLIS_BUILD_WARNING=yes\n');
 fprintf(fid,'## Only useful if mkl is chosen:\n');
 fprintf(fid,'### Intel''s MKL root, where bin, lib and include are:\n');
 fprintf(fid,'#MKL_ROOT=/opt/intel/mkl\n');
@@ -650,3 +666,42 @@ if(~available)
 end
 
 end
+
+% =================================================================================================================
+function check_blis_available(path0,wrnflag)
+available = true;
+available = available & (   exist( sprintf('%s/BLIS/lib/libblis.so',path0), 'file' )   ~=   0   );
+available = available & (   exist( sprintf('%s/BLIS/lib/liblapack.so',path0), 'file' )   ~=   0   );
+
+if(~available)
+    if(wrnflag)
+        clc;
+        fprintf(1,'The build option you have chosen via config.octave means\n');
+        fprintf(1,'that the mex files will be linked against a locally\n');
+        fprintf(1,'compiled version of BLIS and LAPACK. However, this local version is\n');
+        fprintf(1,'not available. I will try now to download, compile, and locally\n');
+        fprintf(1,'install it for you. This process should be transparent for you,\n');
+        fprintf(1,'but it might take a while. Please make sure you have the\n');
+        fprintf(1,'following software installed:\n');
+        fprintf(1,'   - git \n');
+        fprintf(1,'   - gcc and g++ \n');
+        fprintf(1,'   - gfortan or alike\n');
+        fprintf(1,'In case this fails, please set some other value of BLAS_MODE\n');
+        fprintf(1,'and try again (help makefile_mexcode_octave for details)\n\n');
+        fprintf(1,'[PRESS ENTER to go ahead]\n');
+        pause;
+    end
+    status = system ( sprintf('bash %s/build_local_blis.sh',path0) );
+    if(status==0)
+        fprintf('\nSUCCEEDED to build local BLIS!!!\n');
+    else
+        error('Failed to build local BLIS, mex files won''t be generated');
+    end
+    if(wrnflag)
+        fprintf(1,'[PRESS ENTER to go ahead]\n');
+        pause;
+    end
+end
+
+end
+

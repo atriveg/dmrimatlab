@@ -54,6 +54,9 @@ unsigned int blas_num_threads(const unsigned int nth)
         openblas_set_num_threads( nth );
         return rnth;
     }
+#elif defined(_USE_BLIS_THREAD_CONTROL)
+    // Nothing to do here, since by now we will use single-threaded BLIS
+    return 1;
 #else
     // Nothing to do here. Just return a reasonable value
     return 1;

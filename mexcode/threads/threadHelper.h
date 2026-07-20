@@ -97,6 +97,19 @@ extern "C" {
     int openblas_get_num_threads( void );
 }
 
+#elif defined(_USE_BLIS_THREAD_CONTROL)
+
+/**
+ * In case BLIS is used as the backend for BLAS functions, it has
+ * its own way to manage the number of threads on runtime through:
+ *
+ *    dim_t bli_thread_get_num_threads( void );
+ *    void  bli_thread_set_num_threads( dim_t value );
+ *
+ * However, for this particular purpose we build a single-threaded
+ * version of BLIS, so that we are all done
+ */
+
 #else
 
 /**
