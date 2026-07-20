@@ -71,7 +71,6 @@ export CFLAGS="-fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -
     --enable-shared \
     --enable-threading=single \
     --disable-cblas \
-    --enable-amd-frame-tweaks \
     --blas-int-size=32 \
     auto
 
