@@ -139,6 +139,8 @@ fi
 cmake .. \
     -G "Unix Makefiles" \
     -DBUILD_COMPLEX=OFF \
+    -DBUILD_INDEX64=OFF \
+    -DBUILD_INDEX64_EXT_API=OFF \
     -DBUILD_SHARED_LIBS=ON \
     -DLAPACKE=OFF \
     -DCBLAS=OFF \
