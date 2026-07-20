@@ -69,7 +69,6 @@ export CFLAGS="-fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -
 ./configure --prefix="${INSTALLDIR}" \
     --disable-static \
     --enable-shared \
-    --disable-lapack-compat \
     --enable-threading=single \
     --disable-cblas \
     --enable-amd-frame-tweaks \
