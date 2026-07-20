@@ -71,6 +71,7 @@ export CFLAGS="-fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -
     --enable-shared \
     --enable-threading=single \
     --disable-cblas \
+    --enable-ilp64 \
     --blas-int-size=32 \
     auto
 
