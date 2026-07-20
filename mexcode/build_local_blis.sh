@@ -56,11 +56,11 @@ then
     exit 4
 fi
 
-cd blis
+cd blis && git checkout 2.1
 
 if [ "$?" -ne 0 ]
 then
-    echo "Could not cd to FLAME/BLIS code folder. Abort..."
+    echo "Could not checkout BLIS 2.1. Abort..."
     exit 5
 fi
 
