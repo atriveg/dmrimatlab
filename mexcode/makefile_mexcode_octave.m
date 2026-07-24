@@ -117,9 +117,26 @@ if(isunix)
             % Use a custom implementation of BLAS and LAPACK
             customblas   = get_custom_BLAS(path0);
             customlapack = get_custom_LAPACK(path0);
-            [p1,~,~]     = fileparts(customblas);
-            [p2,~,~]     = fileparts(customlapack);
-            blaslinks    = { sprintf('-L%s',p1), sprintf('-L%s',p2), sprintf('-l%s',customblas), sprintf('-l%s',customlapack) };
+            [p1,n1,e1]   = fileparts(customblas);
+            [p2,n2,e2]   = fileparts(customlapack);
+            % -----
+            p1 = strfind(n1,'.');
+            if(~isempty(p1))
+                n1 = n1(1:p1-1);
+            end
+            p2 = strfind(n2,'.');
+            if(~isempty(p2))
+                n2 = n2(1:p2-1);
+            end
+            % -----
+            if(strncmp(n1,'lib',3))
+                n1 = n1(4:end);
+            end
+            if(strncmp(n2,'lib',3))
+                n2 = n2(4:end);
+            end
+            % -----
+            blaslinks    = { sprintf('-L%s',p1), sprintf('-L%s',p2), sprintf('-l%s',n1), sprintf('-l%s',n2), sprintf('-Wl,-rpath=%s',p1), sprintf('-Wl,-rpath=%s',p2) };
             blasflags    = {'-D_SYSTEM_BLAS_BUILD_'};
         case 7
             % System-wide OpenBLAS, avoid direct calls to BLAS functions (very inefficient)
