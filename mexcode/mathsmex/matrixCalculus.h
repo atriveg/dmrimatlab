@@ -31,8 +31,8 @@
         #ifndef _USE_OPENBLAS_THREAD_CONTROL
             #define _USE_OPENBLAS_THREAD_CONTROL
             extern "C"{
-                void openblas_set_num_threads(int );
-                void goto_set_num_threads(int );
+                int openblas_get_num_threads(void);
+                void openblas_set_num_threads(int);
             }
         #endif
     #elif defined(_LOCAL_BLIS_BUILD_)
