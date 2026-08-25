@@ -40,12 +40,23 @@
         #include "./include/lapack.h"
         #ifndef _USE_BLIS_THREAD_CONTROL
             #define _USE_BLIS_THREAD_CONTROL
+            extern "C"{
+                void FLA_Init( void );
+                void FLA_Finalize( void );
+            }
         #endif
     #elif defined(_MKL_BLAS_BUILD_)
         #include "mkl_blas.h"
         #include "mkl_lapack.h"
         #ifndef _USE_MKL_THREAD_CONTROL
             #define _USE_MKL_THREAD_CONTROL
+        #endif
+    #elif defined(_CUSTOM_BLAS_BUILD_)
+        #include "mkl_blas.h"
+        #include "mkl_lapack.h"
+        #include "./include/blas.h"
+        #ifndef _USE_CUSTOM_THREAD_CONTROL
+            #define _USE_CUSTOM_THREAD_CONTROL
         #endif
     #else
         #error "Unknown BLAS implementation"
@@ -56,8 +67,14 @@
 #endif
 
 #ifdef OCTAVE_BUILD
-    #if defined(_SYSTEM_BLAS_BUILD_) || defined(_SYSTEM_OPENBLAS_BUILD_) || defined(_LOCAL_OPENBLAS_BUILD_) || defined(_LOCAL_BLIS_BUILD_)
+    #if defined(_SYSTEM_BLAS_BUILD_) || defined(_SYSTEM_OPENBLAS_BUILD_) || defined(_LOCAL_OPENBLAS_BUILD_)
         #define LAPACKCALLFCN(FUNC) FUNC##_
+        #define BLASCALLFCN(FUNC) FUNC##_
+    #elif defined(_LOCAL_BLIS_BUILD_)
+        #define LAPACKCALLFCN(FUNC) FUNC##_
+        #define BLASCALLFCN(FUNC) FUNC##_
+    #elif defined(_CUSTOM_BLAS_BUILD_)
+        #define LAPACKCALLFCN(FUNC) FUNC
         #define BLASCALLFCN(FUNC) FUNC##_
     #elif defined(_MKL_BLAS_BUILD_)
         typedef MKL_INT BLAS_INT;

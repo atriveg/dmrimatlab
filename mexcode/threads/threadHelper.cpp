@@ -57,6 +57,14 @@ unsigned int blas_num_threads(const unsigned int nth)
 #elif defined(_USE_BLIS_THREAD_CONTROL)
     // Nothing to do here, since by now we will use single-threaded BLIS
     return 1;
+#elif defined(_USE_CUSTOM_THREAD_CONTROL)
+    if(nth==0)
+        return (unsigned int)( mkl_serv_get_max_threads() );
+    else{
+        unsigned int rnth = (unsigned int)( mkl_serv_get_max_threads() );
+        mkl_serv_set_num_threads_local( (int)nth );
+        return rnth;
+    }
 #else
     // Nothing to do here. Just return a reasonable value
     return 1;
@@ -181,6 +189,12 @@ bool DMRIThreader::threadedProcess(
     // the total amount of threads putting down the overall
     // peformance.
 
+    // This is also curcial to avoid each thread to automatically
+    // initialize libflame on its own:
+#ifdef _USE_BLIS_THREAD_CONTROL
+    FLA_Init();
+#endif
+
     unsigned int blas_threads = blas_num_threads(1);
 
     for( unsigned int tid=0; tid<nthreads; ++tid )
@@ -191,6 +205,10 @@ bool DMRIThreader::threadedProcess(
 
     for( unsigned int tid=0; tid<nthreads; ++tid )
         dmriCloseThread( threads[tid] );
+
+#ifdef _USE_BLIS_THREAD_CONTROL
+    FLA_Init();
+#endif
 
     // Revert BLAS threads usage to its default:
     blas_num_threads(blas_threads);

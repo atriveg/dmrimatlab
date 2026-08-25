@@ -48,7 +48,9 @@ then
     exit 3
 fi
 
-git clone "https://github.com/flame/blis.git"
+if [ ! -d "${TMPDIR}/blis" ]; then
+    git clone "https://github.com/flame/blis.git"
+fi
 
 if [ "$?" -ne 0 ]
 then
@@ -76,7 +78,7 @@ export CFLAGS="-fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -
 
 if [ "$?" -ne 0 ]
 then
-    echo "Could not configure FLAME/BLIS. Abort..."
+    echo "Could not configure BLIS. Abort..."
     exit 6
 fi
 
@@ -84,7 +86,7 @@ make -j "${BTHREADS}"
 
 if [ "$?" -ne 0 ]
 then
-    echo "Could not build FLAME/BLIS. Abort..."
+    echo "Could not build BLIS. Abort..."
     exit 7
 fi
 
@@ -92,7 +94,7 @@ make install
 
 if [ "$?" -ne 0 ]
 then
-    echo "Could not install FLAME/BLIS. Abort..."
+    echo "Could not install BLIS. Abort..."
     exit 8
 fi
 
@@ -104,7 +106,9 @@ then
     exit 9
 fi
 
-git clone "https://github.com/Reference-LAPACK/lapack.git"
+if [ ! -d "${TMPDIR}/lapack" ]; then
+    git clone "https://github.com/Reference-LAPACK/lapack.git"
+fi
 
 if [ "$?" -ne 0 ]
 then
@@ -171,12 +175,74 @@ then
     exit 16
 fi
 
+cd "${TMPDIR}"
+
+if [ "$?" -ne 0 ]
+then
+    echo "Could not cd to tmp dir. Abort..."
+    exit 17
+fi
+
+if [ ! -d "${TMPDIR}/libflame" ]; then
+    git clone "https://github.com/flame/libflame.git"
+fi
+
+if [ "$?" -ne 0 ]
+then
+    echo "Could not clone FLAME repo. Abort..."
+    exit 18
+fi
+
+cd libflame
+
+if [ "$?" -ne 0 ]
+then
+    echo "Could not cd to FLAME folder. Abort..."
+    exit 19
+fi
+
+#export LDFLAGS="${LDFLAGS} -L${INSTALLDIR}/lib"
+#export LIBS="${LIBS} -lblis"
+./configure --prefix="${INSTALLDIR}" \
+    --disable-static-build \
+    --enable-dynamic-build \
+    --disable-supermatrix \
+    --enable-lapack2flame \
+    --disable-builtin-blas \
+    --disable-goto-interfaces \
+    --enable-optimizations \
+    --enable-multithreading=no \
+    --enable-blis-use-of-fla-malloc \
+    --disable-cblas-interfaces
+
+if [ "$?" -ne 0 ]
+then
+    echo "Could not configure FLAME. Abort..."
+    exit 20
+fi
+
+make -j "${BTHREADS}"
+
+if [ "$?" -ne 0 ]
+then
+    echo "Could not build FLAME. Abort..."
+    exit 21
+fi
+
+make install
+
+if [ "$?" -ne 0 ]
+then
+    echo "Could not install FLAME. Abort..."
+    exit 22
+fi
+
 rm -fR "${TMPDIR}"
 
 if [ "$?" -ne 0 ]
 then
     echo "Could not clean up. Abort..."
-    exit 17
+    exit 23
 fi
 
 cd "${CURRDIR}"

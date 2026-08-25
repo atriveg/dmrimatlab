@@ -37,7 +37,7 @@
     #include <process.h>
 #endif
 
-#if defined(_USE_MKL_THREAD_CONTROL)
+#if defined(_USE_MKL_THREAD_CONTROL) || defined(_USE_CUSTOM_THREAD_CONTROL)
 
 /**
  * This case will be triggered by adding a -D_USE_MKL_THREAD_CONTROL to the

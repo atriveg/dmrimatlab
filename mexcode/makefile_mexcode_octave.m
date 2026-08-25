@@ -96,7 +96,7 @@ if(isunix)
             blaslinks = { sprintf('-lopenblas_%s',suffix), sprintf('-L%s/openblas-%s/lib',path0,suffix), sprintf('-Wl,-rpath=%s/openblas-%s/lib',path0,suffix) };
             blasflags = {'-D_LOCAL_OPENBLAS_BUILD_', sprintf('-I %s/openblas-%s/include',path0,suffix) };
         case 4
-            % Use BLIS with Netlib's LAPACK
+            % Use BLIS with FLAME (and Netlib's LAPACK for unimplemented routines)
             lines = get_BLAS_config(path0);
             if(strcmp(lines.LOCAL_BLIS_BUILD_WARNING,'no'))
                 wrnflag = false;
@@ -104,8 +104,8 @@ if(isunix)
                 wrnflag = true;
             end
             check_blis_available(path0,wrnflag);
-            blaslinks = { '-lblis', '-llapack', sprintf('-L%s/BLIS/lib',path0), sprintf('-Wl,-rpath=%s/BLIS/lib',path0) };
-            blasflags = {'-D_LOCAL_BLIS_BUILD_'};
+            blaslinks = { '-lblis', '-lflame', '-llapack', sprintf('-L%s/BLIS/lib',path0), sprintf('-Wl,-rpath=%s/BLIS/lib',path0) };
+            blasflags = { '-D_LOCAL_BLIS_BUILD_', sprintf('-I %s/BLIS/include',path0) };
         case 5
             % Use Intel MKL
             mklroot = get_MKL_root(path0);
@@ -689,6 +689,7 @@ function check_blis_available(path0,wrnflag)
 available = true;
 available = available & (   exist( sprintf('%s/BLIS/lib/libblis.so',path0), 'file' )   ~=   0   );
 available = available & (   exist( sprintf('%s/BLIS/lib/liblapack.so',path0), 'file' )   ~=   0   );
+available = available & (   exist( sprintf('%s/BLIS/lib/libflame.so',path0), 'file' )   ~=   0   );
 
 if(~available)
     if(wrnflag)
