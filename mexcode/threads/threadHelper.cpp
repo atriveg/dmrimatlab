@@ -207,7 +207,7 @@ bool DMRIThreader::threadedProcess(
         dmriCloseThread( threads[tid] );
 
 #ifdef _USE_BLIS_THREAD_CONTROL
-    FLA_Init();
+    FLA_Finalize();
 #endif
 
     // Revert BLAS threads usage to its default:
