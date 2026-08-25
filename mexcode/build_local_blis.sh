@@ -167,7 +167,7 @@ make install
 
 if [ "$?" -ne 0 ]
 then
-    echo "Could not installº LAPACK. Abort..."
+    echo "Could not install LAPACK. Abort..."
     exit 16
 fi
 
