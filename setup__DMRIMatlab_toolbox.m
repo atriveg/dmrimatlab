@@ -29,7 +29,7 @@ if(~isdeployed)
     if(sf==1) % i.e. Matlab
         forbidden = {[path0,filesep,'graphics',filesep,'octave']};
     elseif(sf==2) % i.e Octave
-        forbidden = {};
+        forbidden = { [path0,filesep,'mexcode',filesep,'openblas-local'], [path0,filesep,'mexcode',filesep,'BLIS'] };
     else % i.e. Unknown
         error('Unknown software platform');
     end

@@ -92,9 +92,9 @@ if(isunix)
             else
                 wrnflag = true;
             end
-            suffix = check_local_openblas_available(path0,'single-thread',wrnflag);
-            blaslinks = { sprintf('-lopenblas_%s',suffix), sprintf('-L%s/openblas-%s/lib',path0,suffix), sprintf('-Wl,-rpath=%s/openblas-%s/lib',path0,suffix) };
-            blasflags = {'-D_LOCAL_OPENBLAS_BUILD_', sprintf('-I %s/openblas-%s/include',path0,suffix) };
+            check_local_openblas_available(path0,wrnflag,lower(lines.BUILD_DYNAMIC));
+            blaslinks = { '-lopenblas_local', sprintf('-L%s/openblas-local/lib',path0), sprintf('-Wl,-rpath=%s/openblas-local/lib',path0) };
+            blasflags = {'-D_LOCAL_OPENBLAS_BUILD_', sprintf('-I %s/openblas-local/include',path0) };
         case 4
             % Use BLIS with FLAME (and Netlib's LAPACK for unimplemented routines)
             lines = get_BLAS_config(path0);
@@ -103,7 +103,7 @@ if(isunix)
             else
                 wrnflag = true;
             end
-            check_blis_available(path0,wrnflag);
+            check_blis_available(path0,wrnflag,lower(lines.BUILD_DYNAMIC));
             blaslinks = { '-lblis', '-lflame', '-llapack', sprintf('-L%s/BLIS/lib',path0), sprintf('-Wl,-rpath=%s/BLIS/lib',path0) };
             blasflags = { '-D_LOCAL_BLIS_BUILD_', sprintf('-I %s/BLIS/include',path0) };
         case 5
@@ -508,18 +508,6 @@ end
 end
 
 % =================================================================================================================
-function suffix = get_BLAS_suffix(path0)
-% --------
-lines = get_BLAS_config(path0);
-if(isempty(lines.LOCAL_OPENBLAS_SUFFIX))
-    suffix = 'local';
-else
-    suffix = lines.LOCAL_OPENBLAS_SUFFIX;
-end
-% --------
-end
-
-% =================================================================================================================
 function root = get_MKL_root(path0)
     lines = get_BLAS_config(path0);
     if(isempty(lines.MKL_ROOT))
@@ -576,9 +564,9 @@ end
 % --------
 lines.GCC_FLAGS = '';
 lines.BLAS_CONFIG = '';
-lines.LOCAL_OPENBLAS_SUFFIX = '';
 lines.LOCAL_OPENBLAS_BUILD_WARNING = '';
 lines.LOCAL_BLIS_BUILD_WARNING = '';
+lines.BUILD_DYNAMIC='';
 lines.MKL_ROOT = '';
 lines.MKL_REDIST = '';
 lines.CUSTOM_BLAS = '';
@@ -630,10 +618,11 @@ fprintf(fid,'GCC_FLAGS=-DMX_COMPAT_64  -D_GNU_SOURCE -fexceptions -fPIC -fno-omi
 fprintf(fid,'## Choose a BLAS implementation, one of netlib | openblas | openblas-local | blis-local | mkl | custom:\n');
 fprintf(fid,'BLAS_CONFIG=openblas-local\n');
 fprintf(fid,'## Only useful if openblas-local is chosen:\n');
-fprintf(fid,'LOCAL_OPENBLAS_SUFFIX=local\n');
 fprintf(fid,'LOCAL_OPENBLAS_BUILD_WARNING=yes\n');
-fprintf(fid,'## Only useful if blis is chosen:\n');
+fprintf(fid,'## Only useful if blis-local is chosen:\n');
 fprintf(fid,'#LOCAL_BLIS_BUILD_WARNING=yes\n');
+fprintf(fid,'## Only useful if either openblas-local or blis-local are chosen:\n');
+fprintf(fid,'BUILD_DYNAMIC=no\n');
 fprintf(fid,'## Only useful if mkl is chosen:\n');
 fprintf(fid,'### Intel''s MKL root, where bin, lib and include are:\n');
 fprintf(fid,'#MKL_ROOT=/opt/intel/mkl\n');
@@ -648,9 +637,15 @@ fclose(fid);
 end
 
 % =================================================================================================================
-function suffix = check_local_openblas_available(path0,opts,wrnflag)
-suffix    = get_BLAS_suffix(path0);
-available = (   exist( sprintf('%s/openblas-%s/lib/libopenblas_%s.so',path0,suffix,suffix), 'file' )   ~=   0   );
+function check_local_openblas_available(path0,wrnflag,builddynamic)
+
+if(strcmp(builddynamic,'yes'))
+    extension = 'so';
+else
+    extension = 'a';
+end
+
+available = (   exist( sprintf('%s/openblas-local/lib/libopenblas_local.%s',path0,extension), 'file' )   ~=   0   );
 
 if(~available)
     if(wrnflag)
@@ -670,7 +665,7 @@ if(~available)
         fprintf(1,'[PRESS ENTER to go ahead]\n');
         pause;
     end
-    status = system ( sprintf('bash %s/build_local_openblas.sh %s %s',path0,opts,suffix) );
+    status = system ( sprintf('bash %s/build_local_openblas.sh %s',path0,builddynamic) );
     if(status==0)
         fprintf('\nSUCCEEDED to build local OpenBLAS!!!\n');
     else
@@ -685,19 +680,26 @@ end
 end
 
 % =================================================================================================================
-function check_blis_available(path0,wrnflag)
+function check_blis_available(path0,wrnflag,builddynamic)
+
+if(strcmp(builddynamic,'yes'))
+    extension = 'so';
+else
+    extension = 'a';
+end
+
 available = true;
-available = available & (   exist( sprintf('%s/BLIS/lib/libblis.so',path0), 'file' )   ~=   0   );
-available = available & (   exist( sprintf('%s/BLIS/lib/liblapack.so',path0), 'file' )   ~=   0   );
-available = available & (   exist( sprintf('%s/BLIS/lib/libflame.so',path0), 'file' )   ~=   0   );
+available = available & (   exist( sprintf('%s/BLIS/lib/libblis.%s',path0,extension), 'file' )   ~=   0   );
+available = available & (   exist( sprintf('%s/BLIS/lib/liblapack.%s',path0,extension), 'file' )   ~=   0   );
+available = available & (   exist( sprintf('%s/BLIS/lib/libflame.%s',path0,extension), 'file' )   ~=   0   );
 
 if(~available)
     if(wrnflag)
         clc;
         fprintf(1,'The build option you have chosen via config.octave means\n');
         fprintf(1,'that the mex files will be linked against a locally\n');
-        fprintf(1,'compiled version of BLIS and LAPACK. However, this local version is\n');
-        fprintf(1,'not available. I will try now to download, compile, and locally\n');
+        fprintf(1,'compiled version of BLIS/FLAME/LAPACK. However, this local version\n');
+        fprintf(1,'is not available. I will try now to download, compile, and locally\n');
         fprintf(1,'install it for you. This process should be transparent for you,\n');
         fprintf(1,'but it might take a while. Please make sure you have the\n');
         fprintf(1,'following software installed:\n');
@@ -709,7 +711,7 @@ if(~available)
         fprintf(1,'[PRESS ENTER to go ahead]\n');
         pause;
     end
-    status = system ( sprintf('bash %s/build_local_blis.sh',path0) );
+    status = system ( sprintf('bash %s/build_local_blis.sh %s',path0,builddynamic) );
     if(status==0)
         fprintf('\nSUCCEEDED to build local BLIS!!!\n');
     else

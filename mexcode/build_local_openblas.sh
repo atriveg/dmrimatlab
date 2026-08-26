@@ -1,7 +1,7 @@
 #!/bin/bash
 
-DIRSUFFIX="-$2"
-LIBSUFFIX="_$2"
+DIRSUFFIX="-local"
+LIBSUFFIX="_local"
 
 SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 INSTALLDIR="${SCRIPTDIR}/openblas$DIRSUFFIX"
@@ -55,15 +55,8 @@ fi
 export CXXFLAGS="-fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -DNDEBUG"
 export CFLAGS="-fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -DNDEBUG"
 export FFLAGS="-O3"
-case "$1" in
-  "single-thread")
-    make -j DYNAMIC_ARCH=0 BINARY=64 INTERFACE=32 NO_AFFINITY=1 NO_WARMUP=1 USE_OPENMP=0 USE_THREAD=1 NO_CBLAS=1 NO_LAPACKE=1 LIBNAMESUFFIX="${LIBSUFFIX}"
-    ;;
-  *)
-    make -j DYNAMIC_ARCH=0 BINARY=64 INTERFACE=32 NO_AFFINITY=1 NO_WARMUP=1 USE_OPENMP=0 USE_THREAD=1 NO_CBLAS=1 NO_LAPACKE=1 LIBNAMESUFFIX="${LIBSUFFIX}"
-    ;;
-esac
 
+make -j DYNAMIC_ARCH=0 BINARY=64 INTERFACE=32 NO_AFFINITY=1 NO_WARMUP=1 USE_OPENMP=0 USE_THREAD=1 NO_CBLAS=1 NO_LAPACKE=1 LIBNAMESUFFIX="${LIBSUFFIX}"
 
 if [ "$?" -ne 0 ]
 then
@@ -87,7 +80,14 @@ then
     exit 8
 fi
 
-rm -fR "${TMPDIR}" "${INSTALLDIR}/bin" "${INSTALLDIR}/lib/"*.a "${INSTALLDIR}/lib/"*.a.*
+case "$1" in
+  "yes")
+    rm -fR "${TMPDIR}" "${INSTALLDIR}/bin" "${INSTALLDIR}/lib/"*.a "${INSTALLDIR}/lib/"*.a.*
+    ;;
+  *)
+    rm -fR "${TMPDIR}" "${INSTALLDIR}/bin" "${INSTALLDIR}/lib/"*.so "${INSTALLDIR}/lib/"*.so.*
+    ;;
+esac
 
 if [ "$?" -ne 0 ]
 then

@@ -68,13 +68,26 @@ fi
 
 export CFLAGS="-fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -DNDEBUG"
 
-./configure --prefix="${INSTALLDIR}" \
-    --disable-static \
-    --enable-shared \
-    --enable-threading=single \
-    --disable-cblas \
-    --blas-int-size=32 \
-    auto
+case "$1" in
+    "yes")
+        ./configure --prefix="${INSTALLDIR}" \
+            --disable-static \
+            --enable-shared \
+            --enable-threading=single \
+            --disable-cblas \
+            --blas-int-size=32 \
+            auto
+        ;;
+    *)
+        ./configure --prefix="${INSTALLDIR}" \
+            --enable-static \
+            --disable-shared \
+            --enable-threading=single \
+            --disable-cblas \
+            --blas-int-size=32 \
+            auto
+        ;;
+esac
 
 if [ "$?" -ne 0 ]
 then
@@ -140,18 +153,37 @@ then
     exit 13
 fi
 
-cmake .. \
-    -G "Unix Makefiles" \
-    -DBUILD_COMPLEX=OFF \
-    -DBUILD_COMPLEX16=OFF \
-    -DBUILD_INDEX64=OFF \
-    -DBUILD_INDEX64_EXT_API=OFF \
-    -DBUILD_SHARED_LIBS=ON \
-    -DLAPACKE=OFF \
-    -DCBLAS=OFF \
-    -DBLAS_LIBRARIES="${INSTALLDIR}/lib/libblis.so" \
-    -DCMAKE_INSTALL_PREFIX="${INSTALLDIR}" \
-    -DCMAKE_BUILD_TYPE=Release
+
+case "$1" in
+    "yes")
+        cmake .. \
+            -G "Unix Makefiles" \
+            -DBUILD_COMPLEX=OFF \
+            -DBUILD_COMPLEX16=OFF \
+            -DBUILD_INDEX64=OFF \
+            -DBUILD_INDEX64_EXT_API=OFF \
+            -DBUILD_SHARED_LIBS=ON \
+            -DLAPACKE=OFF \
+            -DCBLAS=OFF \
+            -DBLAS_LIBRARIES="${INSTALLDIR}/lib/libblis.so" \
+            -DCMAKE_INSTALL_PREFIX="${INSTALLDIR}" \
+            -DCMAKE_BUILD_TYPE=Release
+        ;;
+    *)
+        cmake .. \
+            -G "Unix Makefiles" \
+            -DBUILD_COMPLEX=OFF \
+            -DBUILD_COMPLEX16=OFF \
+            -DBUILD_INDEX64=OFF \
+            -DBUILD_INDEX64_EXT_API=OFF \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLAPACKE=OFF \
+            -DCBLAS=OFF \
+            -DBLAS_LIBRARIES="${INSTALLDIR}/lib/libblis.a" \
+            -DCMAKE_INSTALL_PREFIX="${INSTALLDIR}" \
+            -DCMAKE_BUILD_TYPE=Release
+        ;;
+esac
 
 if [ "$?" -ne 0 ]
 then
@@ -201,19 +233,34 @@ then
     exit 19
 fi
 
-#export LDFLAGS="${LDFLAGS} -L${INSTALLDIR}/lib"
-#export LIBS="${LIBS} -lblis"
-./configure --prefix="${INSTALLDIR}" \
-    --disable-static-build \
-    --enable-dynamic-build \
-    --disable-supermatrix \
-    --enable-lapack2flame \
-    --disable-builtin-blas \
-    --disable-goto-interfaces \
-    --enable-optimizations \
-    --enable-multithreading=no \
-    --enable-blis-use-of-fla-malloc \
-    --disable-cblas-interfaces
+case "$1" in
+    "yes")
+        ./configure --prefix="${INSTALLDIR}" \
+            --disable-static-build \
+            --enable-dynamic-build \
+            --disable-supermatrix \
+            --enable-lapack2flame \
+            --disable-builtin-blas \
+            --disable-goto-interfaces \
+            --enable-optimizations \
+            --enable-multithreading=no \
+            --enable-blis-use-of-fla-malloc \
+            --disable-cblas-interfaces
+        ;;
+    *)
+        ./configure --prefix="${INSTALLDIR}" \
+            --enable-static-build \
+            --disable-dynamic-build \
+            --disable-supermatrix \
+            --enable-lapack2flame \
+            --disable-builtin-blas \
+            --disable-goto-interfaces \
+            --enable-optimizations \
+            --enable-multithreading=no \
+            --enable-blis-use-of-fla-malloc \
+            --disable-cblas-interfaces
+        ;;
+esac
 
 if [ "$?" -ne 0 ]
 then
@@ -237,7 +284,14 @@ then
     exit 22
 fi
 
-rm -fR "${TMPDIR}"
+case "$1" in
+  "yes")
+    rm -fR "${TMPDIR}" "${INSTALLDIR}/lib/"*.a "${INSTALLDIR}/lib/"*.a.*
+    ;;
+  *)
+    rm -fR "${TMPDIR}" "${INSTALLDIR}/lib/"*.so "${INSTALLDIR}/lib/"*.so.*
+    ;;
+esac
 
 if [ "$?" -ne 0 ]
 then
