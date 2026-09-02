@@ -616,11 +616,11 @@ fprintf(fid,'# This is an automatically generated config file with default value
 fprintf(fid,'## Custom optimization flags for gcc/g++:\n');
 fprintf(fid,'GCC_FLAGS=-DMX_COMPAT_64  -D_GNU_SOURCE -fexceptions -fPIC -fno-omit-frame-pointer -pthread -fwrapv -O3 -DNDEBUG\n');
 fprintf(fid,'## Choose a BLAS implementation, one of netlib | openblas | openblas-local | blis-local | mkl | custom:\n');
-fprintf(fid,'BLAS_CONFIG=openblas-local\n');
+fprintf(fid,'BLAS_CONFIG=blis-local\n');
 fprintf(fid,'## Only useful if openblas-local is chosen:\n');
-fprintf(fid,'LOCAL_OPENBLAS_BUILD_WARNING=yes\n');
+fprintf(fid,'#LOCAL_OPENBLAS_BUILD_WARNING=yes\n');
 fprintf(fid,'## Only useful if blis-local is chosen:\n');
-fprintf(fid,'#LOCAL_BLIS_BUILD_WARNING=yes\n');
+fprintf(fid,'LOCAL_BLIS_BUILD_WARNING=yes\n');
 fprintf(fid,'## Only useful if either openblas-local or blis-local are chosen:\n');
 fprintf(fid,'BUILD_DYNAMIC=no\n');
 fprintf(fid,'## Only useful if mkl is chosen:\n');
