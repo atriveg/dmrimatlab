@@ -1,5 +1,5 @@
 # DMRIMatlab
-This is a complete and self-contained toolbox for basic-to-advanced diffusion MRI reconstruction, processing, and representation (see complete description in: http://www.lpi.tel.uva.es/dmrilab). It works with both Matlab (multi-platform) and Octave (Linux, by now).
+This is a complete and self-contained toolbox for basic-to-advanced diffusion MRI reconstruction, processing, and representation (see complete description in: http://www.lpi.tel.uva.es/dmrilab). It works with both Matlab (multi-platform) and GNU Octave (Linux, by now).
 
 It includes:
 
@@ -29,6 +29,7 @@ Funding:
         Agencia Estatal de Investigación, Gobierno de España:
         PID2021-124407NB-I00
         TED2021-130090B-I00
+        PID2024-158963NB-I00
 
 In case you use the package for your own research, we ask you to kindly cite it as:
 
@@ -37,8 +38,8 @@ In case you use the package for your own research, we ask you to kindly cite it 
 ## Getting started:
 
 1. Download the code from https://github.com/atriveg/dmrimatlab.
-2. From the Matlab/Octave command window, cd to the home folder, i.e. that containing the setup script "setup__DMRIMatlab_toolbox.m".
-3. Run the setup script as either (the 'useparallel' option has no effect in Octave by now):
+2. From the Matlab/GNU Octave command window, cd to the home folder, i.e. that containing the setup script "setup__DMRIMatlab_toolbox.m".
+3. Run the setup script as either (the 'useparallel' option has no effect in GNU Octave by now):
 
         >> setup__DMRIMatlab_toolbox('useparallel',true);
         >> setup__DMRIMatlab_toolbox('useparallel',false);
@@ -47,35 +48,36 @@ In case you use the package for your own research, we ask you to kindly cite it 
 
         >> setup__DMRIMatlab_toolbox;
 
-   for using/avoid using the Parallel Computing Toolbox. In case you don't have a working license for it, the script will not throw an error. This will setup your Matlab/Octave path for the present session (it won't make any permanent changes).
+   for using/avoid using the Parallel Computing Toolbox. In case you don't have a working license for it, the script will not throw an error. This will setup your Matlab/GNU Octave path for the present session (it won't make any permanent changes).
 4. Download the test data used for demo files and tests by running [YOU ONLY NEED TO (SUCCESSFULLY) RUN THIS COMMAND ONCE]:
 
         >> download_dmritestdata
 
-5. Make sure you have a suitable C/C++ compiler installed in your computer, preferably the GCC suite (in Windows, we recommend installing the "MinGW" Add-On from the Matlab interface). In Octave, you might need a Fortran compiler (gfortran) as well. In Matlab, type:
+5. Make sure you have a suitable C/C++ compiler installed in your computer, preferably the GCC suite (in Windows, we recommend installing the "MinGW" Add-On from the Matlab interface). In GNU Octave, you might need a Fortran compiler (gfortran) as well. In Matlab, type:
 
         >> mex-setup
         >> mex-setup C++
 
-In Octave:
+   or, in GNU Octave:
 
         >> mex --print CC
         >> mex --print CXX
 
+   to check your available compilers.
 6. Run the script [YOU ONLY NEED TO RUN THIS COMMAND EACH TIME YOU PULL A NEW VERSION FROM THE REPO]:
 
         >> makefile_mexcode
 
-    which will build all the necessary mex files within the toolbox [FOR OCTAVE BUILDS, PLEASE CHECK THE README.octave FILE IN THE 'mexcode' SUBFOLDER].
+    which will build all the necessary mex files within the toolbox [FOR GNU OCTAVE BUILDS, PLEASE CHECK THE README.octave.md FILE IN THE 'mexcode' SUBFOLDER].
 7. Open/run some of the demo files from the launch menu by typing:
 
         >> dmrimatlab_demo
 
-    In Matlab, .mlx notebook files are used. In Octave, they are .ipynb noteboks [IN OCTAVE YOU WILL ADDITIONALLY NEED JupyterLab WITH THE KERNEL FOR OCTAVE].
+    In Matlab, .mlx notebook files are used. In GNU Octave, they are .ipynb noteboks [IN GNU OCTAVE YOU WILL ADDITIONALLY NEED JupyterLab WITH THE KERNEL FOR GNU OCTAVE].
 
-## A note on Octave's computational performance
+## A note on GNU Octave's computational performance
 
-Unlike Matlab, GNU Octave does not pack any particular implementations of BLAS/LAPACK, but instead it uses those provided by the system (usually Netlib's libblas and liblapack through arpack). Note this may dramatically decrease its computational performance compared to Matlab. To avoid this issue, you may install OpenBLAS or, even better for compatible hardware, Intel's MKL and force octave to use them by doing something like:
+Unlike Matlab, GNU Octave does not pack any particular implementations of BLAS/LAPACK, but instead it uses those provided by the system (usually Netlib's libblas and liblapack through arpack). Note this may dramatically decrease its computational performance compared to Matlab. To avoid this issue, you may install OpenBLAS or, even better for compatible hardware, Intel's MKL and force GNU Octave to use them by doing something like:
 
         $ LD_PRELOAD="/usr/lib/libopenblas.so:${LD_PRELOAD}" octave
 
@@ -86,17 +88,17 @@ or:
 You may even write your own wrapper for GNU Octave, something like:
 
         /usr/bin/octave-mkl:
-                #!/bin/bash
-                LD_PRELOAD="/opt/intel/mkl/lib/intel64/libmkl_rt.so:${LD_PRELOAD}" /usr/bin/octave "$@"
+           #!/bin/bash
+           LD_PRELOAD="/opt/intel/mkl/lib/intel64/libmkl_rt.so:${LD_PRELOAD}" /usr/bin/octave "$@"
 
 ## Additional software required
 
-The toolbox is designed to be self-contained, so that core methods do not rely in any external software not directly provided. It does not depend either on any particular Matlab's or Octave's toolbox/package. Note, however, that developer tools (GCC suite or alike) are required to compile the mex functions of the toolbox. Depending on your system configuration, in Octave builds this might imply the need of installing certain packages (mainly: cblas, lapacke, openblas or others, see the README.octave file in the 'mexcode' subfolder); in Debian and derived distributions, you will also need to install the octave-dev package with Octave's header files to be able to compile the mex files (this is not the case with Arch and derived, because Octave is downloaded and compiled from the AUR repo).
+The toolbox is designed to be self-contained, so that core methods do not rely in any external software not directly provided. It does not depend either on any particular Matlab's or GNU Octave's toolbox/package. Note, however, that developer tools (GCC suite or alike) are required to compile the mex functions of the toolbox. Depending on your system configuration, in GNU Octave builds this might imply the need of installing certain packages (mainly: blas, lapack, openblas or others, see the README.octave.md file in the 'mexcode' subfolder); in Debian and derived distributions, you will also need to install the octave-dev package with GNU Octave's header files to be able to compile the mex files (this is not the case with Arch and derived, because GNU Octave is downloaded and compiled from the AUR repo).
 
 Yet, test programs make use of certain specific functions from toolboxes/packages that you will need to install in case you want to actually run these tests. These are:
 
 - For Matlab: Optimization, Signal Processing, Statistics, and Symbolic Maths.
-- For Octave: gsl, optim, signal, statistics.
+- For GNU Octave: gsl, optim, signal, statistics.
 
 NOTE: in some platforms (Arch, Manjaro and alike) it is likely that you get a compile error when trying to install the optim package. In this case you will have to:
         1. Download the source code of the package, optim-1.6.2.tar.gz, from: https://gnu-octave.github.io/packages/optim/
@@ -106,10 +108,10 @@ NOTE: in some platforms (Arch, Manjaro and alike) it is likely that you get a co
            to:
                (fcn.user_function_value ()->parameter_list ()->size ());
         4. Pack again the folder to optim-1.6.2.tar.gz
-        5. Within Octave, browse to the folder where your resulting optim-1.6.2.tar.gz is, then run <pkg install optim-1.6.2.tar.gz>
+        5. Within GNU Octave, browse to the folder where your resulting optim-1.6.2.tar.gz is, then run "pkg install optim-1.6.2.tar.gz"
 
-Finally, Octave's demos are written as Jupyter notebooks, so that you will need JupyterLab and Jupyter's kernel for Octave to run them. NOTE: since JupyterLab uses by default the octave-cli program, it is very convenient that you run it like this:
+Finally, GNU Octave's demos are written as Jupyter notebooks, so that you will need JupyterLab and Jupyter's kernel for GNU Octave to run them. NOTE: since JupyterLab uses by default the octave-cli program, it is very convenient that you run it like this:
 
         $ OCTAVE_EXECUTABLE=/usr/bin/octave jupyter-lab
 
-so that it actually uses the full-featured Octave program and you can enjoy Qt-based graphics instead of the more limited gnuplot (this will be automatically done for you in case you run the demos from the launch menu by using the dmrimatlab_demo command).
+so that it actually uses the full-featured GNU Octave program and you can enjoy Qt-based graphics instead of the more limited gnuplot (this will be automatically done for you in case you run the demos from the launch menu by using the dmrimatlab_demo command).
