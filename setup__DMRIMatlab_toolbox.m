@@ -80,20 +80,17 @@ if(~isdeployed)
     end
 end
 
-if(~opt.quiet)
-    if(exist('msg1','var'))
-        fprintf(1,msg1);
-    end
-    if(exist('msg2','var'))
-        fprintf(1,msg2);
-    end
-    % Retrieve information on BLAS/LAPACK libraries:
-    fprintf(1,'BLAS and LAPACK used by Octave:\n');
-    fprintf(1,'   BLAS: %s\n',version('-blas'));
-    fprintf(1,'   LAPACK: %s\n',version('-lapack'));
-    if( exist ('mexLinkInfo.mex','file')==3 )
-       fprintf(1,'BLAS and LAPACK used by mex files:\n');
-       mexLinkInfo;
+if(~isdeployed)
+    if(~opt.quiet)
+        if(exist('msg1','var'))
+            fprintf(1,msg1);
+        end
+        if(exist('msg2','var'))
+            fprintf(1,msg2);
+        end
+        if(sf==2)
+            printBLASInfo;
+        end
     end
 end
 
