@@ -8,7 +8,7 @@ function [f,lperp,nu,lpar] = atti2freewater( atti, gi, bi, varargin )
 %   method described in:
 %
 %       Antonio Tristan-Vega; Guillem Paris; Rodrigo de Luis-Garcia; 
-%       Santiago Aja-Fernandez. A"ccurate free-water estimation in white 
+%       Santiago Aja-Fernandez. "Accurate free-water estimation in white
 %       matter from fast diffusion MRI acquisitions using the spherical 
 %       means technique". Magnetic Resonance in Medicine 87(2), 
 %       pp. 1028–1035. Wiley, 2022.
