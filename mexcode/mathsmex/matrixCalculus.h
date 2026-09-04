@@ -74,7 +74,7 @@
         #define LAPACKCALLFCN(FUNC) FUNC##_
         #define BLASCALLFCN(FUNC) FUNC##_
     #elif defined(_CUSTOM_BLAS_BUILD_)
-        #define LAPACKCALLFCN(FUNC) FUNC
+        #define LAPACKCALLFCN(FUNC) FUNC##_
         #define BLASCALLFCN(FUNC) FUNC##_
     #elif defined(_MKL_BLAS_BUILD_)
         typedef MKL_INT BLAS_INT;

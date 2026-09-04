@@ -87,6 +87,14 @@ if(~opt.quiet)
     if(exist('msg2','var'))
         fprintf(1,msg2);
     end
+    % Retrieve information on BLAS/LAPACK libraries:
+    fprintf(1,'BLAS and LAPACK used by Octave:\n');
+    fprintf(1,'   BLAS: %s\n',version('-blas'));
+    fprintf(1,'   LAPACK: %s\n',version('-lapack'));
+    if( exist ('mexLinkInfo.mex','file')==3 )
+       fprintf(1,'BLAS and LAPACK used by mex files:\n');
+       mexLinkInfo;
+    end
 end
 
 global is_broadcast_available_test_var; %#ok<GVMIS>
