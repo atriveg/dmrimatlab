@@ -2,7 +2,7 @@ function signal = dti2signal( tensor, gi, varargin )
 % function signal = dti2signal( tensor, gi, 'opt1', value1, 'opt2', value2, ... )
 %
 %   Computes a symmetric signal defined over the unit sphere (signal(gi) = 
-%   signal(-gi)) from its SH coefficients at given directions gi:
+%   signal(-gi)) from its DTI coefficients at given directions gi:
 %
 %      tensor: a MxNxPx6 double array containing the unique coefficients
 %         of the tensor at each voxel.
@@ -20,7 +20,7 @@ function signal = dti2signal( tensor, gi, varargin )
 %         set. To improve the performance, cunksz voxels are gathered
 %         together in a single matrix that is pre-multiplied by the 
 %         corresponding matrix, hence taking advantage of matlab's
-%         capabilities (default: 100).
+%         capabilities (default: 1000).
 %      mask: a MxNxP array of logicals. Only those voxels where mask is
 %         true are processed, the others are filled with zeros.
 
@@ -42,7 +42,7 @@ end
 G = size(gi,1);
 
 % Parse the optional input arguments:
-opt.chunksz = 100;      optchk.chunksz = [true,true]; % always 1x1 double
+opt.chunksz = 1000;     optchk.chunksz = [true,true]; % always 1x1 double
 opt.mask = true(M,N,P); optchk.mask = [true,true];    % boolean with the size of the image field
 opt = custom_parse_inputs(opt,optchk,varargin{:});
 

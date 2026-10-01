@@ -82,9 +82,9 @@ if(nargin<3)
 end
 [M,N,P,G] = size(atti);
 NV = M*N*P; % Total number of voxels to be processed
-assert(ismatrix(gi),'gi must be 2-d matlab matrix');
-assert(size(gi,1)==G,'The number of rows in gi must match the 4-th dimension of dwi');
-assert(size(gi,2)==3,'The gradients table gi must have size Gx3');
+assert( ismatrix(gi), 'gi must be 2-d matlab matrix' );
+assert( size(gi,1)==G, 'The number of rows in gi must match the 4-th dimension of atti' );
+assert( size(gi,2)==3, 'The gradients table gi must have size Gx3' );
 %%% -----------------------------------------------------------------------
 % Parse the optional input arguments:
 opt.wls = true;         optchk.wls = [true,true];        % always 1x1 boolean
