@@ -281,6 +281,14 @@ modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/tensor'];
 mid = mid+1;
 % -----------------
+modules(mid).name = 'atti2dkt_';
+modules(mid).src = './dki';
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../mathsmex/sphericalHarmonics.cxx','../mathsmex/sh2hot.cxx','../threads/threadHelper.cpp','../quadprog/dmriquadprog.cxx'};
+modules(mid).links  = [ blaslinks, trlinks ];
+modules(mid).flags = blasflags;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/dki'];
+mid = mid+1;
+% -----------------
 modules(mid).name = 'dti2spectrum_';
 modules(mid).src = './tensor';
 modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
