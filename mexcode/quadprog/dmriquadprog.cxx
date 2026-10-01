@@ -715,6 +715,38 @@ namespace dmriqpp
     }
     
     /**
+     * Check if two succesive soltutions are identical
+    */
+    bool identicalSolutions( const QPProblem& problem )
+    {
+        if( problem.CE>0 ){
+            for( unsigned int c=0; c<problem.CE; ++c ){
+                if( problem.leq[c] != problem.leq0[c] )
+                    return false;
+            }
+        }
+        if( problem.CI>0 ){
+            for( unsigned int c=0; c<problem.CI; ++c ){
+                if( problem.l[c] != problem.l0[c] )
+                    return false;
+            }
+        }
+        if( problem.CL>0 ){
+            for( unsigned int c=0; c<problem.CL; ++c ){
+                if( problem.mu[c] != problem.mu0[c] )
+                    return false;
+            }
+        }
+        if( problem.CU>0 ){
+            for( unsigned int c=0; c<problem.CU; ++c ){
+                if( problem.eta[c] != problem.eta0[c] )
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * The actual routine to solve the Quadratic Program
      */
     int solveQuadraticProgram( QPProblem& problem, QPAuxiliar& auxiliar, const QPParams& params )
@@ -753,6 +785,11 @@ namespace dmriqpp
                 gradientDescent( problem, auxiliar, (problem.step)*stepfct );
                 // Re-compute the cost function:
                 problem.cost = computeDualCost( problem, auxiliar );
+                // If the solution didn't change at all, we have succeeded to find the optimum
+                if( identicalSolutions(problem) ){
+                    computePrimalSolution( problem, auxiliar );
+                    return QPP_OK;
+                }
                 // Check if we succeeded to decrease the cost
                 if( problem.cost<=cost0 ){ // Yes, we succeeded
                     if(ngoods<params.streak){++ngoods;}

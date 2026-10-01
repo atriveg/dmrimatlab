@@ -73,25 +73,26 @@ Qi = Q\eye(size(Q,1));
 g  = C*Qi*f + u;
 H  = C*Qi*(C');
 
-y0 = zeros(size(u));
-
+y0   = zeros(size(u));
 y    = y0;
 bnd  = ( (y0<0.0) & pn );
 mu   = norm(g)/trace(Qi)/1000;
 fct  = 1.0;
 res0 = 0.5*(y0'*H*y0) + g'*y0;
-
 streak = 3;
 ngoods = 0;
 
 for n=1:miters
     dy   = -mu*fct*(H*y0+g);
-    bndn = bnd & (dy<0);
+    bndn = bnd & (dy<=0);
     dy(bndn) = 0;
     y    = y0 + dy;
-    bndn = ( (y<0.0) & pn );
+    bndn = bndn | ( (y<0.0) & pn );
     y(bndn) = 0;
     res = 0.5*(y'*H*y)+g'*y;
+    if(norm(y-y0)==0)
+        break;
+    end
     if(res<res0)
         % Success! Update x and increase fct
         ngoods = min(ngoods+1,streak);

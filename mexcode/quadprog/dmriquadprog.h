@@ -79,12 +79,12 @@ namespace dmriqpp
         // Problem solutions:
         double* x;   // N x 1, solution of the primal problem
         double* leq; // CE x 1, Lagrange multiplier of Aeq*x = beq
-        double* l;   // CI x 1, Lagrange multiplier of A*x = b
+        double* l;   // CI x 1, Lagrange multiplier of A*x <= b
         double* mu;  // CL x 1, Lagrange multiplier of lb <= x
         double* eta; // CU x 1, Lagrange multiplier of x <= ub
         // Problem solutions in the previous iteration:
         double* leq0; // CE x 1, Lagrange multiplier of Aeq*x = beq
-        double* l0;   // CI x 1, Lagrange multiplier of A*x = b
+        double* l0;   // CI x 1, Lagrange multiplier of A*x <= b
         double* mu0;  // CL x 1, Lagrange multiplier of lb <= x
         double* eta0; // CU x 1, Lagrange multiplier of x <= ub
         // Scalar variables:
@@ -223,6 +223,8 @@ namespace dmriqpp
     void normalizeConstraints( QPProblem& problem );
     
     void computeStep0( QPProblem& problem, const QPAuxiliar& auxiliar );
+
+    bool identicalSolutions( const QPProblem& problem );
     
     int solveQuadraticProgram( QPProblem& problem, QPAuxiliar& auxiliar, const QPParams& params );
     
