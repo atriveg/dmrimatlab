@@ -100,21 +100,21 @@ for c=1:length(ch)
     imshow( vol(:,:,9)', [0,1] );
     vls = vol(mask);
     vls = vls( ~isnan(vls) & ~isinf(vls) );
-    title( sprintf('b=%1.0f, mu=%1.3f', bi(ch(c)), mean(vls) ) );
+    title( sprintf('b=%1.0f, mu=%1.3f (orig.)', bi(ch(c)), mean(vls) ) );
     % ----
     subplot(3,length(ch),c+1*length(ch));
     vol = atti3(:,:,:,ch(c));
     imshow( vol(:,:,9)', [0,1] );
     vls = vol(mask);
     vls = vls( ~isnan(vls) & ~isinf(vls) );
-    title( sprintf('b=%1.0f, mu=%1.3f', bi(ch(c)), mean(vls) ) );
+    title( sprintf('b=%1.0f, mu=%1.3f (DTI)', bi(ch(c)), mean(vls) ) );
     % ----
     subplot(3,length(ch),c+2*length(ch));
     vol = atti2(:,:,:,ch(c));
     imshow( vol(:,:,9)', [0,1] );
     vls = vol(mask);
     vls = vls( ~isnan(vls) & ~isinf(vls) );
-    title( sprintf('b=%1.0f, mu=%1.3f', bi(ch(c)), mean(vls) ) );
+    title( sprintf('b=%1.0f, mu=%1.3f (DTI+DKT)', bi(ch(c)), mean(vls) ) );
     % ----
 end
 drawnow;
@@ -136,14 +136,14 @@ for s=1:length(sl)
     imshow(IMG,[]);
     colormap(parula);
     colorbar;
-    title('S_0');
+    title('S_0 (DTI)');
     % ----
     subplot(2,length(sl),s+1*length(sl));
     IMG = S0(:,:,sl(s))';
     imshow(IMG,[]);
     colormap(parula);
     colorbar;
-    title('S_0');
+    title('S_0 (DTI+DKT)');
 end
 drawnow;
 % -------------------------------------------------------------------------
@@ -157,14 +157,14 @@ for s=1:length(sl)
     imshow(IMG,[0,3.0e-3]);
     colormap(parula);
     colorbar;
-    title('MD');
+    title('MD (DTI)');
     % ----
     subplot(2,length(sl),s+1*length(sl));
     IMG = md(:,:,sl(s))';
     imshow(IMG,[0,3.0e-3]);
     colormap(parula);
     colorbar;
-    title('MD');
+    title('MD (DTI+DKT)');
 end
 drawnow;
 % -------------------------------------------------------------------------
@@ -177,13 +177,13 @@ for s=1:length(sl)
     IMG = squeeze(rgb_(:,:,sl(s),:));
     IMG = permute(IMG,[2,1,3]);
     imshow(IMG);
-    title('color FA');
+    title('color FA (DTI)');
     % ----
     subplot(2,length(sl),s+1*length(sl));
     IMG = squeeze(rgb(:,:,sl(s),:));
     IMG = permute(IMG,[2,1,3]);
     imshow(IMG);
-    title('color FA');
+    title('color FA (DTI+DKT)');
 end
 drawnow;
 % -------------------------------------------------------------------------

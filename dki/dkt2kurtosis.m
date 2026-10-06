@@ -16,7 +16,7 @@ function [mk,ak,rk] = dkt2kurtosis( dkt, dti, varargin )
 %   reads:
 %
 %     K(n) = MD^2 * (sum_{i=1,j=1}^3 ni·nj·D_{ij})^{-2}
-%                                 * sum_{i=1,j=1}^3 ni·nj·D_{ij}
+%                            * sum_{i=1,j=1,k=1,l=1}^3 ni·nj·nk·nl·W_{ijkl}
 %
 %   If u1, u2 and u3 are the three orthogonal eigenvectors of D_{ij}, we
 %   calculate:
