@@ -1,4 +1,4 @@
-function plotSlicedVolume_demo1(hf,volume,mask,slices,flipY)
+function plotSlicedVolume_demo1(hf,volume,mask,slices,flipY,window)
 figure(hf);
 
 if(nargin<4)
@@ -7,6 +7,10 @@ end
 
 if(nargin<5)
     flipY = false;
+end
+
+if(nargin<6)
+    window = [];
 end
 
 if(nargin<3)
@@ -31,7 +35,9 @@ if(size(IMG,3)>1)
     imshow(IMG);
 else
     % Otherwise, find a proper dynamic range:
-    window = quantile( volume(mask), [0.05,0.95] );
+    if(isempty(window))
+        window = quantile( volume(mask), [0.05,0.95] );
+    end
     if(window(1)==window(2))
         window(1) = 0;
     end
