@@ -14,10 +14,10 @@ function atti = dkt2atti( dkt, dti, S0, gi, bi, varargin )
 %   MANDATORY INPUTS:
 %
 %      dkt: MxNxPx15, where the last dimension contains the 15 unique
-%         components of the 4th order Kurtosis tensor, W_{ijkl}. The
+%         components of the 4th order kurtosis tensor, W_{ijkl}. The
 %         ordering of these components is consistent with that used in
 %         HOT-related functions. It is returned by atti2dkt.
-%      dti: MxNxPx6, where the last diemsnion contains the 6 unique 
+%      dti: MxNxPx6, where the last dimension contains the 6 unique 
 %         components of the 2nd order diffusion tensor, D_{ik}. It is
 %         returned by either atti2dkt or atti2dti.
 %      S0: MxNxP, the normalized baseline (a value near 1) to be applied to

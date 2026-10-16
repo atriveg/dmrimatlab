@@ -1,4 +1,5 @@
 function plotVolBW_demoDTI(V,scale)
+warning('off','Octave:imshow-NaN');
 if(nargin<2)
     scale = [];
 end

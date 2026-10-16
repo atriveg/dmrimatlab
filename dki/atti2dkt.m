@@ -5,8 +5,8 @@ function [dkt,dti,S0] = atti2dkt( atti, gi, bi, dti, S0, varargin )
 %   Given the attenuation signal atti, computed as S_i/S_0, the gradients
 %   table gi, and the b-values bi it corresponds to, computes the diffusion
 %   tensor (dti) and the kurtosis tensor (dkt) by fitting the attenuation
-%   signal in the logarithmic domain with linear least squares, according
-%   to the model:
+%   signal in the logarithmic domain with weighted, constrained, linear 
+%   least squares, according to the model:
 %
 %     log(atti) = log(S) - log(S_0)
 %       = - b * sum_{i=1,j=1}^3 ni·nj·D_{ij}
@@ -15,7 +15,7 @@ function [dkt,dti,S0] = atti2dkt( atti, gi, bi, dti, S0, varargin )
 %   where MD is the mean diffusivity at each voxel computed from D_{ij}.
 %   Alternatively, S_0 can also be included as a variable to optimize (note
 %   the attenuation, not the diffusion, signal is fed to the function, so
-%   thay S_0 is indeed a correction factor close to 1, in the same way as
+%   that S_0 is indeed a correction factor close to 1, in the same way as
 %   in atti2dti).
 %   To fit the model, either ordinary LS, weigthed LS or quadratic
 %   programming can be used. In the latter case, we use a method inspired
@@ -62,17 +62,17 @@ function [dkt,dti,S0] = atti2dkt( atti, gi, bi, dti, S0, varargin )
 %   OUTPUTS
 %
 %      dkt: MxNxPx15, where the last dimension contains the 15 unique
-%         components of the 4th order Kurtosis tensor, W_{ijkl}. The
+%         components of the 4th order kurtosis tensor, W_{ijkl}. The
 %         ordering of these components is consistent with that used in
 %         HOT-related functions. Accordingly, you can evaluate the kurtosis
 %         tensor using hot2signal.
 %      dti: Can be either:
-%         MxNxPx6 if the 'unroll' option is switchwd off
+%         MxNxPx6 if the 'unroll' option is switched off.
 %         MxNxPx3x3 if the 'unroll' option is switched on.
 %         In the former case, no duplicates of tensor entries are returned,
 %         so that squeeze(tensor(x,y,x,:)) = [D11,D12,D13,D22,D23,D33]'.
 %      S0: MxNxP, the normalized baseline (a value near 1), so that you
-%         can recover your ESTIMATED baseline dividing by S0.
+%         can recover your ESTIMATED baseline multiplying by S0.
 %
 %   Optional arguments may be passed as name/value pairs in the regular
 %   matlab style:
@@ -88,7 +88,9 @@ function [dkt,dti,S0] = atti2dkt( atti, gi, bi, dti, S0, varargin )
 %      rcondth: in case wls is switched on, minimum allowed reciprocal 
 %         condition number for matrix inversions (default: 1.0e-6).
 %      qp: whether (true) or not (false) using quadratic programming with
-%         linear constraints to fit the signal (default: true).
+%         linear constraints to fit the signal (default: true) [NOTE: the
+%         QP will fit the signal WEIGHTED with the optimal weights found in
+%         the last iteration of the WLS solution].
 %      nconst: in case qp is switched on, the number of orientations for
 %         which linear constraints are imposed. Note 3 constraints are
 %         designed for each orientation, so that the actual number of
@@ -108,7 +110,7 @@ function [dkt,dti,S0] = atti2dkt( atti, gi, bi, dti, S0, varargin )
 %         considered virtually identical. It is internally used to
 %         determine if {gi,bi} comprise an actual multi-shell sampling
 %         (default: 50).
-%      unroll: wether (true) or not (false) output the dti as a 3x3
+%      unroll: whether (true) or not (false) output the dti as a 3x3
 %         matrix at each voxel instead of a 6x1 vector (in the latter case
 %         duplicates of the entries of the diffusion tensor are removed so
 %         that only [D11,D12,D13,D22,D23,D33] are returned) (default:

@@ -119,8 +119,8 @@ for c=1:length(ch)
 end
 drawnow;
 % -------------------------------------------------------------------------
-[u1_,~,~,l1_,l2_,l3_] = dti2spectrum( dti_, 'mask', mask );
-[u1,~,~,l1,l2,l3]     = dti2spectrum( dti,  'mask', mask );
+[u1_,~,~,l1_,l2_,l3_] = dti2spectrum( dti_, 'mask', mask, 'clip', true );
+[u1,u2,u3,l1,l2,l3]     = dti2spectrum( dti,  'mask', mask, 'clip', true );
 md_ = spectrum2scalar(l1_,l2_,l3_,'mask',mask,'scalar','md');
 md  = spectrum2scalar(l1,l2,l3,'mask',mask,'scalar','md');
 rgb_ = spectrum2colorcode(u1_,l1_,l2_,l3_,'mask',mask);
@@ -197,24 +197,134 @@ for s=1:length(sl)
     imshow(IMG,[0,1.5]);
     colormap(parula);
     colorbar;
-    title('MK');
+    title('MK (analytical)');
     % ----
     subplot(3,length(sl),s+1*length(sl));
     IMG = ak(:,:,sl(s))';
     imshow(IMG,[0,1.25]);
     colormap(parula);
     colorbar;
-    title('K_{||}');
+    title('K_{||} (analytical)');
     % ----
     subplot(3,length(sl),s+2*length(sl));
     IMG = rk(:,:,sl(s))';
     imshow(IMG,[0,2.0]);
     colormap(parula);
     colorbar;
-    title('K_{\perp}');
+    title('K_{\perp} (analytical)');
 end
 drawnow;
 % -------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------
+gia = designGradients(128);
+W_u = hot2signal( dkt, gia, 'mask', mask );
+D_u = dti2signal( dti, gia, 'mask', mask );
+K_u = W_u.*(md.*md)./(D_u.*D_u);
+K_u(~mask) = 0;
+
+LSH  = 14;
+SH1  = signal2sh( K_u, gia, 'L', LSH, 'lambda', 0.00001, 'mask', mask );
+SH2  = SH1.*reshape( diag(GenerateFRTMatrix(LSH)), [1,1,1,size(SH1,4)] )/(2*pi);
+
+mkp  = SH1(:,:,:,1)/sqrt(4*pi);
+akp  = zeros(size(mkp));
+rkp  = zeros(size(mkp));
+
+SH1  = reshape( SH1, [numel(mkp),size(SH1,4)] );
+SH2  = reshape( SH2, [numel(mkp),size(SH2,4)] );
+SH1  = SH1(mask,:);
+SH2  = SH2(mask,:);
+u1p  = reshape( u1, [numel(mkp),3] );
+u1p  = u1p(mask,:);
+NN   = size(SH1,1);
+akp_ = zeros(NN,1);
+rkp_ = zeros(NN,1);
+chunksz = 1000;
+for ck=1:ceil(NN/chunksz)
+    % -------------------------------
+    idi = (ck-1)*chunksz+1;
+    idf = min(ck*chunksz,NN);
+    % -------------------------------
+    SH1_ = SH1(idi:idf,:); % chunksz x (L+1)(L+2)/2;
+    SH2_ = SH2(idi:idf,:); % chunksz x (L+1)(L+2)/2;
+    u1_  = u1p(idi:idf,:); % chunksz x 3
+    % -------------------------------
+    B    = GenerateSHMatrix(LSH,u1_); % chunksz x (L+1)(L+2)/2;
+    % -------------------------------
+    akp_(idi:idf,1) = sum(SH1_.*B,2);
+    rkp_(idi:idf,1) = sum(SH2_.*B,2);
+end
+akp(mask) = akp_;
+rkp(mask) = rkp_;
+
+close(figure(6));
+figure(6);
+sl = [2,5,8,11,14,16];
+for s=1:length(sl)
+    % ----
+    subplot(3,length(sl),s+0*length(sl));
+    IMG = mkp(:,:,sl(s))';
+    imshow(IMG,[0,1.5]);
+    colormap(parula);
+    colorbar;
+    title('MK (numerical)');
+    % ----
+    subplot(3,length(sl),s+1*length(sl));
+    IMG = akp(:,:,sl(s))';
+    imshow(IMG,[0,1.25]);
+    colormap(parula);
+    colorbar;
+    title('K_{||} (numerical)');
+    % ----
+    subplot(3,length(sl),s+2*length(sl));
+    IMG = rkp(:,:,sl(s))';
+    imshow(IMG,[0,2.0]);
+    colormap(parula);
+    colorbar;
+    title('K_{\perp} (numerical)');
+end
+drawnow;
+% -------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------
+close(figure(7));
+figure(7);
+K_u1 = dkt2dirkurtosis( dkt, dti, u1 );
+K_u2 = dkt2dirkurtosis( dkt, dti, u2 );
+K_u3 = dkt2dirkurtosis( dkt, dti, u3 );
+
+mkt = ( K_u1 + K_u2 + K_u3 )/3;
+rkt = ( K_u2 + K_u3 )/2;
+akt = K_u1;
+
+sl = [2,5,8,11,14,16];
+for s=1:length(sl)
+    % ----
+    subplot(3,length(sl),s+0*length(sl));
+    IMG = mkt(:,:,sl(s))';
+    imshow(IMG,[0,1.5]);
+    colormap(parula);
+    colorbar;
+    title('(K(l_1)+K(l_2)+K(l_3))/3');
+    % ----
+    subplot(3,length(sl),s+1*length(sl));
+    IMG = akt(:,:,sl(s))';
+    imshow(IMG,[0,1.25]);
+    colormap(parula);
+    colorbar;
+    title('K(l_1)');
+    % ----
+    subplot(3,length(sl),s+2*length(sl));
+    IMG = rkt(:,:,sl(s))';
+    imshow(IMG,[0,2.0]);
+    colormap(parula);
+    colorbar;
+    title('(K(l_2)+K(l_3))/2');
+end
+drawnow;
+% -------------------------------------------------------------------------
+
 end
 
 % -------------------------------------------------------------------------

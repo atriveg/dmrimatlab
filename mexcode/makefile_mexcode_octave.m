@@ -177,6 +177,14 @@ modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/maths/legen
 modules(mid).flags = blasflags;
 mid = mid+1;
 % -----------------
+modules(mid).name = 'carlsonR_';
+modules(mid).src = './dki';
+modules(mid).depends = {'../mathsmex/CarlsonR.cxx','../threads/threadHelper.cpp',};
+modules(mid).links = [ blaslinks, trlinks ];
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/dki'];
+modules(mid).flags = blasflags;
+mid = mid+1;
+% -----------------
 modules(mid).name = 'mexGenerateSHMatrix';
 modules(mid).src = './sh';
 modules(mid).depends = {'../mathsmex/sphericalHarmonics.cxx'};

@@ -80,9 +80,9 @@ opt.mask       = true(M,N,P); optchk.mask       = [true,true];    % boolean with
 opt.maxthreads = 1.0e6;       optchk.maxthreads = [true,true];    % always 1x1 pos number
 opt = custom_parse_inputs(opt,optchk,varargin{:});
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-HOT  = reshape(HOT,[NV,K]);   % NVxK
+HOT  = reshape(HOT,[NV,K]);  % NVxK
 mask = opt.mask(:);          % NVx1
-HOT  = HOT(mask,:); % PVxK
+HOT  = HOT(mask,:);          % PVxK
 [S2,mu,pwrs] = hot2signal_(HOT,gi,opt.maxthreads);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 S = zeros(NV,G);

@@ -4,6 +4,9 @@ This is a complete and self-contained toolbox for basic-to-advanced diffusion MR
 It includes:
 
 - The classical Diffusion Tensor Imaging (DTI) formalism with linear and non-linear signal fitting.
+- Diffusion kurtosis imaging, including:
+        - Full (constrained) reconstruction of the kurtosis tensor.
+        - Analytical computation of axial, radial and mean kurtosis as line/surface integrals.
 - High Angular Resolution Diffusion Imaging (HARDI):
         - Spherical Harmonics (SH).
         - Orientation Probability Density Transform (OPDT).

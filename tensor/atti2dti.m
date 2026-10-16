@@ -63,7 +63,7 @@ function [tensor,S0] = atti2dti( atti, gi, bi, varargin )
 %      fixmode: either 'n', 'z', or 'a', respectively meaning: no
 %         correction of negative eigenvalues, zero-clipping or absolute
 %         value (default: 'n').
-%      unroll: wether (true) or not (false) output the result as a 3x3
+%      unroll: whether (true) or not (false) output the result as a 3x3
 %         matrix at each voxel instead of a 6x1 vector (in the latter case
 %         duplicates of the entries of the diffusion tensor are removed so
 %         that only [D11,D12,D13,D22,D23,D33] are returned) (default:

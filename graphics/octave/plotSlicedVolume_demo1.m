@@ -1,4 +1,5 @@
 function plotSlicedVolume_demo1(hf,volume,mask,slices,flipY,window)
+warning('off','Octave:imshow-NaN');
 figure(hf);
 
 if(nargin<4)
