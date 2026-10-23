@@ -117,8 +117,8 @@ if(isunix)
             % Use a custom implementation of BLAS and LAPACK
             customblas   = get_custom_BLAS(path0);
             customlapack = get_custom_LAPACK(path0);
-            [p1,n1,e1]   = fileparts(customblas);
-            [p2,n2,e2]   = fileparts(customlapack);
+            [~,n1,~]   = fileparts(customblas);
+            [~,n2,~]   = fileparts(customlapack);
             % -----
             p1 = strfind(n1,'.');
             if(~isempty(p1))
@@ -142,7 +142,7 @@ if(isunix)
             % System-wide OpenBLAS, avoid direct calls to BLAS functions (very inefficient)
             blaslinks = {'-lopenblas'};
             blasflags = {'-D_SYSTEM_OPENBLAS_BUILD_','-D_NO_BLAS_CALLS'};
-        otherwise,
+        otherwise
             error('Unable to determine the BLAS implementation to use');
     end
 end
@@ -276,6 +276,14 @@ mid = mid+1;
 modules(mid).name = 'hydidsiQIntegrals_';
 modules(mid).src = './hydidsi';
 modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
+modules(mid).links  = [ blaslinks, trlinks ];
+modules(mid).flags = blasflags;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
+mid = mid+1;
+% -----------------
+modules(mid).name = 'hydidsi2samples_';
+modules(mid).src = './hydidsi';
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp',};
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
@@ -520,14 +528,14 @@ switch(lower(lines.BLAS_CONFIG))
         BLAS_MODE = 2;
     case 'openblas-local'
         BLAS_MODE = 3;
-    case 'blis-local';
+    case 'blis-local'
         BLAS_MODE = 4;
     case 'mkl'
         BLAS_MODE = 5;
     case 'custom'
         BLAS_MODE = 6;
     otherwise
-        error(sprintf('Unable to parse option <%s> in config.octave. Choose one of [ netlib | openblas | openblas-local | blis-local | mkl | custom ] or delete the config file to use defaults',lines.BLAS_CONFIG));
+        error('Unable to parse option <%s> in config.octave. Choose one of [ netlib | openblas | openblas-local | blis-local | mkl | custom ] or delete the config file to use defaults',lines.BLAS_CONFIG);
 end
 end
 
@@ -540,7 +548,7 @@ function root = get_MKL_root(path0)
         root = lines.MKL_ROOT;
     end
     if(exist(root,'dir')~=7)
-        warning(sprintf('MKL root directory <%s> doesn''t seem to exist. Please check your config file\n',root));
+        warning('MKL root directory <%s> doesn''t seem to exist. Please check your config file\n',root);
     end
 end
 
@@ -553,7 +561,7 @@ function redist = get_MKL_redist(path0)
         redist = lines.MKL_REDIST;
     end
     if(exist(redist,'dir')~=7)
-        warning(sprintf('MKL redist directory <%s> doesn''t seem to exist. Please check your config file\n',redist));
+        warning('MKL redist directory <%s> doesn''t seem to exist. Please check your config file\n',redist);
     end
 end
 
@@ -608,11 +616,11 @@ while(str~=-1)
             idx = strfind(str,'=');
             if(length(idx)~=1)
                 fclose(fid);
-                error( sprintf('Wrong line in config file: <%s>. Must be PROPERTY=value',str) );
+                error('Wrong line in config file: <%s>. Must be PROPERTY=value',str);
             end
             if(idx==1)
                 fclose(fid);
-                error( sprintf('Wrong line in config file: <%s>. Must be PROPERTY=value',str) );
+                error('Wrong line in config file: <%s>. Must be PROPERTY=value',str);
             end
             % ------------------------------
             property = strtrim(str(1:idx-1));
@@ -631,10 +639,10 @@ end
 
 % =================================================================================================================
 function create_default_config_ctave(config)
-warning(sprintf('Unable to open config file ''%s'' for reading. Creating it now with default options',config));
+warning('Unable to open config file ''%s'' for reading. Creating it now with default options',config);
 fid = fopen(config,'w');
 if(fid==-1)
-    error(sprintf('Could not open <%s> for writing',config));
+    error('Could not open <%s> for writing',config);
 end
 fprintf(fid,'# This is an automatically generated config file with default values\n');
 fprintf(fid,'## Custom optimization flags for gcc/g++:\n');

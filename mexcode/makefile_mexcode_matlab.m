@@ -1,4 +1,4 @@
-function makefile_mexcode(varargin)
+function makefile_mexcode_matlab(varargin)
 % This is a function that builds all (or only selected) modules of mex code
 % within the toolbox. Use cases are:
 %
@@ -211,6 +211,14 @@ mid = mid+1;
 modules(mid).name = 'hydidsiQIntegrals_';
 modules(mid).src = './hydidsi';
 modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp'};
+modules(mid).links  = [ blaslinks, trlinks ];
+modules(mid).flags = blasflags;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
+mid = mid+1;
+% -----------------
+modules(mid).name = 'hydidsi2samples_';
+modules(mid).src = './hydidsi';
+modules(mid).depends = {'../threads/threadHelper.cpp',};
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
