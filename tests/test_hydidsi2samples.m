@@ -12,55 +12,34 @@ N  = 1e6;
 n_th = 1;
 tau = 40e-3;
 Rth = 0.03;
+lattice = [2;3;4];
 [atti,gi,bi] = generate_atti_signal;
 atti = reshape( atti, [1,1,1,size(atti,1)] );
 tic;
 [eap,dti,lattice,Qx,Qy,Qz,~,~,~] = atti2hydidsi( atti, gi, bi, ...
     'tl', 1.0e-7, 'tu', 1-1.0e-7, 'lambda', 0.4, 'tau', tau, ...
-    'Rth', Rth, 'lattice', [], 'const', true, 'usemex', true, ...
+    'Rth', Rth, 'lattice', lattice, 'const', true, 'usemex', true, ...
     'miters', 10000, 'otol', 1.0e-6, 'stol', 1.0e-6, 'ctol', 1.0e-8 );
 T = toc;
 fprintf(1,'It took %1.5f seconds to fit the EAP\n',T);
 
 eap  = reshape( eap, [1,numel(eap)] );
 dti  = reshape( dti,  [1,6] );
+intp = 'linear'; % 'nearest' / 'linear' / 'spline'
 c    = [];
 seed = [13,7225,190318];
 tic;
 [rsx,rsy,rsz,c] = hydidsi2samples( eap, dti, lattice', ...
-    [Qx(:),Qy(:),Qz(:)], N, c, seed, n_th );
+    [Qx(:),Qy(:),Qz(:)], N, intp(1), c, seed, n_th );
 T = toc;
 fprintf(1,'It took %1.4f seconds to generate %d samples\n',T,N);
-
 fprintf(1,'The optimal value found for c is %1.4f\n',c);
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-ogrid = zeros( 2*lattice(2)+1, 2*lattice(1)+1, 2*lattice(3)+1 );
-NPG   = numel(ogrid);
-ogrid((NPG+1)/2:end)  = eap;
-ogrid((NPG-1)/2:-1:1) = eap(2:end);
-egrid = zeros( 2*lattice(2)+5, 2*lattice(1)+5, 2*lattice(3)+5 );
-egrid(3:end-2,3:end-2,3:end-2) = ogrid;
-xgl = (-lattice(1)-2:lattice(1)+2)/Qx;
-ygl = (-lattice(2)-2:lattice(2)+2)/Qy;
-zgl = (-lattice(3)-2:lattice(3)+2)/Qz;
-[xg,yg,zg] = meshgrid(xgl,ygl,zgl);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-[U,~] = eig([ ...
-    dti(1),dti(2),dti(3); ...
-    dti(2),dti(4),dti(5); ...
-    dti(3),dti(5),dti(6) ...
-    ]);
-mysamples = (U')*([rsx';rsy';rsz']);
-rsx = mysamples(1,:);
-rsy = mysamples(2,:);
-rsz = mysamples(3,:);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Lx   = max(abs(rsx));
 Ly   = max(abs(rsy));
 Lz   = max(abs(rsz));
 RG   = 40;
+NG   = 2*RG+1;
 rx   = Lx*(-RG:RG)/RG;
 ry   = Ly*(-RG:RG)/RG;
 rz   = Lz*(-RG:RG)/RG;
@@ -70,8 +49,18 @@ hz   = rz(2)-rz(1);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 tic;
 [rxg,ryg,rzg] = meshgrid(rx,ry,rz);
-eap_th = interp3(xg,yg,zg,egrid,rxg,ryg,rzg,'spline',0);
-eap_th(eap_th<0) = 0;
+ri  = sqrt(rxg.*rxg+ryg.*ryg+rzg.*rzg);
+ri  = ri(:)';
+iri = ri;
+iri(abs(ri)>eps) = 1./ri(abs(ri)>eps);
+iri(abs(ri)<eps) = 0;
+ui = [rxg(:)';ryg(:)';rzg(:)'].*iri;
+tic;
+eap_th = hydidsi2eap( ...
+    reshape(eap,[1,1,1,numel(eap)]), ...
+    reshape(dti,[1,1,1,6]), ...
+    lattice, Qx, Qy, Qz, ui', ri', 'interp', intp(1) );
+eap_th = reshape(eap_th,[NG,NG,NG]);
 T = toc;
 fprintf(1,'It took %1.5f seconds to render the EAP\n',T);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -109,7 +98,6 @@ figure(hf);
 ha = subplot(1,3,1); hold('on'); grid('on');
 hp(1) = histogram(rsx,40,'Normalization','pdf','DisplayStyle','stairs','EdgeColor',[.5,.0,.0],'LineWidth',2);
 hp(2) = plot(rx,f_X,'LineStyle','--','LineWidth',2,'Color',[.0,.5,.0]);
-plot(xgl,0*xgl,'LineStyle','none','Color',[0,0,0],'Marker','o','MarkerSize',10);
 legend(hp,'Histogram of data','Target PDF','Location','NorthWest','FontSize',16); legend('boxoff');
 xlabel('x [mm]','FontSize',18);
 ylabel('f_X(x) [mm^{-1}]','FontSize',18);
@@ -121,7 +109,6 @@ figure(hf);
 ha = subplot(1,3,2); hold('on'); grid('on');
 hp(1) = histogram(rsy,40,'Normalization','pdf','DisplayStyle','stairs','EdgeColor',[.5,.0,.0],'LineWidth',2);
 hp(2) = plot(ry,f_Y,'LineStyle','--','LineWidth',2,'Color',[.0,.5,.0]);
-plot(ygl,0*ygl,'LineStyle','none','Color',[0,0,0],'Marker','o','MarkerSize',10);
 legend(hp,'Histogram of data','Target PDF','Location','NorthWest','FontSize',16); legend('boxoff');
 xlabel('y [mm]','FontSize',18);
 ylabel('f_Y(y) [mm^{-1}]','FontSize',18);
@@ -133,7 +120,6 @@ figure(hf);
 ha = subplot(1,3,3); hold('on'); grid('on');
 hp(1) = histogram(rsz,40,'Normalization','pdf','DisplayStyle','stairs','EdgeColor',[.5,.0,.0],'LineWidth',2);
 hp(2) = plot(rz,f_Z,'LineStyle','--','LineWidth',2,'Color',[.0,.5,.0]);
-plot(zgl,0*zgl,'LineStyle','none','Color',[0,0,0],'Marker','o','MarkerSize',10);
 legend(hp,'Histogram of data','Target PDF','Location','NorthWest','FontSize',16); legend('boxoff');
 xlabel('z [mm]','FontSize',18);
 ylabel('f_Z(z) [mm^{-1}]','FontSize',18);

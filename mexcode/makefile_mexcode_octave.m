@@ -281,9 +281,17 @@ modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
 mid = mid+1;
 % -----------------
+modules(mid).name = 'hydidsi2eap_';
+modules(mid).src = './hydidsi';
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../mathsmex/sanityCheckDTI.cxx','../mathsmex/DSIInterp.cxx','../threads/threadHelper.cpp'};
+modules(mid).links  = [ blaslinks, trlinks ];
+modules(mid).flags = blasflags;
+modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];
+mid = mid+1;
+% -----------------
 modules(mid).name = 'hydidsi2samples_';
 modules(mid).src = './hydidsi';
-modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../threads/threadHelper.cpp',};
+modules(mid).depends = {'../mathsmex/matrixCalculus.cxx','../mathsmex/DSIInterp.cxx','../threads/threadHelper.cpp'};
 modules(mid).links  = [ blaslinks, trlinks ];
 modules(mid).flags = blasflags;
 modules(mid).dest = [fileparts(which('setup__DMRIMatlab_toolbox')),'/HYDI-DSI'];

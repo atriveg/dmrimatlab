@@ -1,9 +1,10 @@
-% hydidsi2samples(eap,dti,lattice,Q,N)
-% hydidsi2samples(eap,dti,lattice,Q,N,c)
-% hydidsi2samples(eap,lattice,Q,N,c,seed)
-% hydidsi2samples(eap,dti,lattice,Q,N,[],seed)
-% hydidsi2samples(eap,dti,lattice,Q,N,*,seed,maxthreads)
-% hydidsi2samples(eap,dti,lattice,Q,N,*,[],maxthreads)
+% hydidsi2samples(eap,dti,lattice,Q,N,interp)
+% hydidsi2samples(eap,dti,lattice,Q,N,interp,c)
+% hydidsi2samples(eap,dti,lattice,Q,N,[],c)
+% hydidsi2samples(eap,lattice,Q,N,*,c,seed)
+% hydidsi2samples(eap,dti,lattice,Q,N,*,[],seed)
+% hydidsi2samples(eap,dti,lattice,Q,N,*,*,seed,maxthreads)
+% hydidsi2samples(eap,dti,lattice,Q,N,*,*,[],maxthreads)
 % c = hydidsi2samples(___)
 % [x,y,z] = hydidsi2samples(___)
 % [x,y,z,c] = hydidsi2samples(___)
@@ -33,6 +34,10 @@
 %      - Q: a 1 x 3 vector, Q = [Qx,Qy,Qz] with the bandwidths returned by
 %            atti2hydidsi at each voxel.
 %      - N: A 1 x 1 integer, the number of random samples to generate.
+%      - interp: a 1 x 1 char, either 'n', 'l' or 's', telling the algorihtm
+%            if the EAP at continuous points should be interpolated by
+%            nearest neighbor, linear or cubic B-spline interpolation (leave
+%            empty for dedault 'l').
 %      - c (optional): the constant used by the rejection method. If it is
 %            ommitted or an empty array [] is passed, the function will
 %            internally compute it (and can be returned as an output). It
@@ -62,7 +67,7 @@
 %   passing the same HYDI-DSI coeffs. Yet, externally providing a seed can
 %   improve the computational performance. You can check the
 %   <test_hydidsi2samples.m> script for a simple demonstration.
-function varargout = hydidsi2samples(eap,dti,lattice,Q,N,c,seed,maxthreads)
+function varargout = hydidsi2samples(eap,dti,lattice,Q,N,intrp,c,seed,maxthreads)
 if(nargin<4)
     error('At least the eap, the dti, the lattice and the bandwidth factors must be supplied');
 end
@@ -87,14 +92,21 @@ switch(nargout)
         assert(nargin>=5,'At least the eap, the dti, the lattice, the bandwidth factors and N must be supplied');
         assert(isscalar(N),'The number of samples, N, must be a scalar');
         assert(N==round(N),'The number of samples, N, must be integer');
+        if( nargin<6 || isempty(intrp) )
+            intrp = 'l';
+        else
+            assert(isscalar(intrp),'intrp must be a single char');
+            assert(ischar(intrp),'intrp must be a single char');
+            assert( any(intrp=='nls'), 'intrp must be either ''n'', ''l'' or ''s''');
+        end
         sigma = [];
-        if( nargin<6 || isempty(c) ) % Need to estimate c
+        if( nargin<7 || isempty(c) ) % Need to estimate c
             [c,sigma] = hydidsi2samples_compute_c(eap,lattice,Q);
         else
             assert(isscalar(c),'c must be a scalar');
             assert(c>1,'c must be greater than 1');
         end
-        if( nargin<7 || isempty(seed) ) % Need to create a seed
+        if( nargin<8 || isempty(seed) ) % Need to create a seed
             seed = datetime('now').Second;
             seed = seed - floor(seed);
             seed = 1e6*seed; % microseconds
@@ -103,7 +115,7 @@ switch(nargout)
             assert( isequal(size(seed),[1,3]), 'The seed must be a 1x3 vector' );
             seed = round(seed);
         end
-        if( nargin<8 || isempty(maxthreads) )
+        if( nargin<9 || isempty(maxthreads) )
             maxthreads = 1e6; % Internally adjusted by the mex function
         else
             assert(isscalar(maxthreads),'maxthreads must be a scalar');
@@ -113,16 +125,9 @@ switch(nargout)
         if(isempty(sigma))
             [~,sigma] = hydidsi2samples_compute_c(eap,lattice,Q);
         end
-        % Create the full grid from the reduced coefficients:
-        grid = hydidsi2samples_grid_from_coeffs(eap,lattice,Q);
-        % Call the mex function. NOTE: as opposed to meshgrid's behavior,
-        % the mex function is coded in the regular C/C++ style for which x
-        % is the first (inner-most) index, y is the second one and z is the
-        % third (outer-most). Since we work with normalized coordinates
-        % (Q is not fed), we can simply swap the roles of x and y and leave
-        % the grid as it is:
-        [y,x,z] = hydidsi2samples_( double(grid), double(c), ...
-            double(sigma), double(N), double(seed), double(maxthreads) );
+        % Call the mex function:
+        [x,y,z] = hydidsi2samples_( double(eap)/prod(Q), double(lattice), double(c), ...
+            double(sigma), double(N), char(intrp), double(seed), double(maxthreads) );
         % The mex function creates normalized samples in [-Ni,Ni], but we
         % want them to be in [-Ni/Qi,Ni/Qi]. Hence:
         x = x/Q(1);
@@ -131,12 +136,9 @@ switch(nargout)
         % Yet, the lattice refers to a rotated space where z is aligned
         % with the main eigenvector, so that we need to rotate these
         % samples to undo this transform:
-        [U,~] = eig([ ...
-            dti(1),dti(2),dti(3); ...
-            dti(2),dti(4),dti(5); ...
-            dti(3),dti(5),dti(6) ...
-            ]);
-        % (Matlab places the eigenvalues in ascending order)
+        [u1,u2,u3] = dti2spectrum( reshape(dti,[1,1,1,6]) ); % In descending order
+        U  = [u3(:),u2(:),u1(:)]; % We need them in ascending order!!
+        U(:,1) = cross(U(:,2),U(:,3)); % Make sure U is a rotation matrix
         samples = [x,y,z]*(U');
         % Return the samples:
         for n=1:min(nargout,3)
@@ -148,57 +150,6 @@ switch(nargout)
         end
 end
 
-end
-
-% -------------------------------------------------------------------------
-function grid = hydidsi2samples_grid_from_coeffs(eap,lattice,Q)
-% Due to the way meshgrid works, the row, column, slice sizes
-% of the original eap in its whole domain were:
-R = 2*lattice(2)+1;
-C = 2*lattice(1)+1;
-S = 2*lattice(3)+1;
-% The extended grid will use a larger grid:
-R2   = R + 4;
-C2   = C + 4;
-S2   = S + 4;
-grid = zeros(R2,C2,S2);
-% The unique coefficients of the eap are chosen (except for
-% the DC component) according to these linear indices:
-idit = (R*C*S+3)/2 :  1 : R*C*S;
-% The other coefficients are symmetric:
-idih = (R*C*S-1)/2 : -1 : 1;
-% And the DC component is just:
-idi0 = (R*C*S+1)/2;
-% which correspond to per-dimension indices:
-[rt,ct,st] = ind2sub([R,C,S],idit);
-[rh,ch,sh] = ind2sub([R,C,S],idih);
-[r0,c0,s0] = ind2sub([R,C,S],idi0);
-% In the extended grid, we have to add an offset 2:
-rt = rt+2;
-ct = ct+2;
-st = st+2;
-% --
-rh = rh+2;
-ch = ch+2;
-sh = sh+2;
-% --
-r0 = r0+2;
-c0 = c0+2;
-s0 = s0+2;
-% These can be converted back to linear indices in the new
-% extended array:
-idot = sub2ind([R2,C2,S2],rt,ct,st);
-idoh = sub2ind([R2,C2,S2],rh,ch,sh);
-ido0 = sub2ind([R2,C2,S2],r0,c0,s0);
-% Then, we can directly cast the (unique) values of the
-% eap in the proper places:
-grid(idot) = eap(2:end);
-grid(idoh) = eap(2:end);
-grid(ido0) = eap(1);
-% NOTE: we will work with a normalized domain where the bandwidths
-% Q are neglected, i.e. the eap "lives" in [-Ni,Ni] instead of
-% [-Ni/Qi,Ni/Qi]. Hence, the EAP has to be normalized accordingly:
-grid = grid/prod(Q);
 end
 
 % -------------------------------------------------------------------------

@@ -159,7 +159,7 @@ THFCNRET dti2spectrum_process_fcn( void* inargs )
             );
             //---------------------------------------------------------------------
             // Fill the outputs:
-            // NOTE: dspev return the eigenvalues in ascending order, but the DTI
+            // NOTE: dspev returns the eigenvalues in ascending order, but the DTI
             //       convention is the opposite
             if(info==0){
                 io->l0[i] = eigval[2];

@@ -10,8 +10,10 @@
 
 #include "mex.h"
 #include "math.h"
+#include "../mathsmex/matrixCalculus.h"
 #include "../mathsmex/mexToMathsTypes.h"
 #include "../threads/threadHelper.h"
+#include "../mathsmex/DSIInterp.h"
 #include <stdlib.h>
 #include <chrono>
 #include <cmath>
@@ -48,9 +50,10 @@ public:
     BufferType x;              // The buffer (size N) where the x coordinate is stored
     BufferType y;              // The buffer (size N) where the y coordinate is stored
     BufferType z;              // The buffer (size N) where the z coordinate is stored
-    BufferType coeffs;         // The buffer (size K) with the HYDI-DSI coefficients expanding the EAP
+    BufferType grid;           // The expanded grid (size (2*Nx+5)x(2*Ny+5)x(2*Nz+5)) where the EAP is rendered
     ElementType c;             // The *magic* constant used by the rejection method
     ElementType sigma;         // The variance of the Gaussian candidates
+    char interp;               // The interpolation type
     unsigned short seed16v[3]; // Random generator seeding
     unsigned int tid;          // Which thread is being run?
     unsigned int nth;          // What is the total number of threads?
@@ -64,13 +67,7 @@ THFCNRET hydidsi2samples_process_fcn( void* );
 
 void hydidsi2samples_randn3d( drand48_data*, double&, double&, double& );
 
-bool hydidsi2samples_interpolate( const BufferType,
-                                  const SizeType&, const SizeType&, const SizeType&,
-                                  const double&, const double&, const double&, double& );
-
-void hydidsi2samples_splines( const double&, double&, double&, double&, double& );
-
-void hydidsi2samples_thomas3D( const BufferType, BufferType, const unsigned int*, const unsigned int = 2 );
+void hydidsi2samples_thomas3D( const BufferType, BufferType*, BufferType*, BufferType, const unsigned int*, const unsigned int = 2 );
 
 /* The gateway function */
 void mexFunction( int nlhs, mxArray *plhs[],
@@ -78,12 +75,14 @@ void mexFunction( int nlhs, mxArray *plhs[],
 {
     //=======================================================================================
     // INPUTS:
-    //      prhs[0]: The HYDI-DSI coefficients, (2*Nx+5)x(2*Ny+5)x(2*Nz+5)
-    //      prhs[1]: The constant c, 1x1
-    //      prhs[2]: The normalized variance sigma, 1x1
-    //      prhs[3]: The number of samples to generate, 1x1
-    //      prhs[4]: A 1x3 vector to initialize the random number generator
-    //      prhs[5]: A 1x1 scalar with the number of threads to use
+    //      prhs[0]: The HYDI-DSI coefficients, 1 x K, with K = ((2*Nx+1)(2*Ny+1)(2*Nz+1)+1)/2
+    //      prhs[1]: The lattice size, 3x1
+    //      prhs[2]: The constant c, 1x1
+    //      prhs[3]: The normalized variance sigma, 1x1
+    //      prhs[4]: The number of samples to generate, 1x1
+    //      prhs[5]: 'n', 'l' or 's', the interpolation type,
+    //      prhs[6]: A 1x3 vector to initialize the random number generator
+    //      prhs[7]: A 1x1 scalar with the number of threads to use
     //=======================================================================================
     /** Make sure this function is called in a "controlable" way*/
     mxArray* callstack[1];
@@ -94,33 +93,23 @@ void mexFunction( int nlhs, mxArray *plhs[],
     else if( strcmp(callerFunc,"hydidsi2samples") )
         mexErrMsgIdAndTxt("MyToolbox:hydidsi2samples_:callstack","This function should only be called from hydidsi2samples");
     //=======================================================================================
-    if( nrhs!=6 )
-        mexErrMsgIdAndTxt("MyToolbox:hydidsi2samples_:nrhs","Exactly 6 arguments must be passed");
+    if( nrhs!=8 )
+        mexErrMsgIdAndTxt("MyToolbox:hydidsi2samples_:nrhs","Exactly 8 arguments must be passed");
     //=======================================================================================
-    if( mxGetNumberOfDimensions(prhs[0]) != 3 )
-        mexErrMsgIdAndTxt("MyToolbox:hydidsi2samples_:dim","Input 1 must be 3-D");
-    SizeType M  = mxGetNumberOfElements(prhs[0]);
-    SizeType Nx = mxGetDimensions(prhs[0])[0];
-    SizeType Ny = mxGetDimensions(prhs[0])[1];
-    SizeType Nz = mxGetDimensions(prhs[0])[2];
-    unsigned int sizes[3];
-    sizes[0] = Nx;
-    sizes[1] = Ny;
-    sizes[2] = Nz;
-    Nx = (Nx-5)/2;
-    Ny = (Ny-5)/2;
-    Nz = (Nz-5)/2;
-    if( (Nx<=0) || (Ny<=0) || (Nz<=0) )
-        mexErrMsgIdAndTxt("MyToolbox:hydidsi2samples_:nrhs","Wrong sizes at input 0");
+    SizeType Nx = (SizeType)(mxGetDoubles(prhs[1])[0]);
+    SizeType Ny = (SizeType)(mxGetDoubles(prhs[1])[1]);
+    SizeType Nz = (SizeType)(mxGetDoubles(prhs[1])[2]);
+    SizeType K = ( (2*Nx+1)*(2*Ny+1)*(2*Nz+1) + 1 )/2; // Number of EAP coefficients
     //=======================================================================================
-    ElementType c = mxGetScalar( prhs[1] );
-    ElementType sigma = mxGetScalar( prhs[2] );
-    SizeType N = (SizeType)(mxGetScalar(prhs[3]));
+    ElementType c = mxGetScalar( prhs[2] );
+    ElementType sigma = mxGetScalar( prhs[3] );
+    SizeType N = (SizeType)(mxGetScalar(prhs[4]));
+    char interp = (char)( mxGetChars(prhs[5])[0] );
     unsigned short seed16v[3];
-    seed16v[0] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[4])[0]) % 0x1000000000000 );
-    seed16v[1] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[4])[1]) % 0x1000000000000 );
-    seed16v[2] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[4])[2]) % 0x1000000000000 );
-    unsigned int maxthreads = (unsigned int)( mxGetDoubles(prhs[5])[0] );
+    seed16v[0] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[6])[0]) % 0x1000000000000 );
+    seed16v[1] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[6])[1]) % 0x1000000000000 );
+    seed16v[2] = (unsigned short)( (unsigned long long)(mxGetDoubles(prhs[6])[2]) % 0x1000000000000 );
+    unsigned int maxthreads = (unsigned int)( mxGetDoubles(prhs[7])[0] );
     //=======================================================================================
     // OUTPUTS:
     //      plhs[0]: The x coordiantes (Nx1)
@@ -152,18 +141,43 @@ void mexFunction( int nlhs, mxArray *plhs[],
     threader.z      = mxGetDoubles(plhs[2]);
     threader.c      = c;
     threader.sigma  = sigma;
+    threader.interp = interp;
     threader.seed16v[0] = seed16v[0];
     threader.seed16v[1] = seed16v[1];
     threader.seed16v[2] = seed16v[2];
-    // From the values of the EAP at grid points, use Thomas'
-    // algorithm recursively to obtain the grid coefficients
-    // of the B-spline
-    threader.coeffs = new ElementType[M];
-    hydidsi2samples_thomas3D( mxGetDoubles(prhs[0]), threader.coeffs, (unsigned int*)sizes );
+    // From the EAP in the "collapsed" form, compute the EAP
+    // at the extended grid points:
+    BufferType values;
+    SizeType M = dsiinterp::allocate_extended_grid( values, Nx, Ny, Nz );
+    mataux::setValueMxArray(values,M,1,0.0);
+    dsiinterp::fill_extended_grid( mxGetDoubles(prhs[0]), values, Nx, Ny, Nz );
+    // The threader object will store a buffer the same size:
+    dsiinterp::allocate_extended_grid( threader.grid, Nx, Ny, Nz );
+    mataux::setValueMxArray(threader.grid,M,1,0.0);
+    if(interp=='s'){
+        // If spline interpolation is used, this buffer is computed by
+        // solving a block-tridiagonal system with Thomas' algorithm
+        SizeType sizes[3];
+        sizes[0] = 2*Ny+5;  // The 0 -> y swap is not a bug, but consistent with meshgrid
+        sizes[1] = 2*Nx+5;  // The 1 -> x swap is not a bug, but consistent with meshgrid
+        sizes[2] = 2*Nz+5;
+        BufferType* gamma;
+        BufferType* theta;
+        dsiinterp::allocate_thomas3D( gamma, theta, (SizeBuffer)sizes );
+        dsiinterp::thomas3D( values, gamma, theta, threader.grid, (SizeBuffer)sizes );
+        delete[] gamma; // No longer necessary
+        delete[] theta; // No longer necessary
+    }
+    else{
+        // Otherwise, this buffer is copied straight to the threader
+        // object
+        memcpy( threader.grid, values, M*sizeof(ElementType) );
+    }
+    delete[] values; // No longer necessary
     //=======================================================================================
     threader.threadedProcess( maxthreads, hydidsi2samples_process_fcn );
     //=======================================================================================
-    delete[] threader.coeffs;
+    delete[] threader.grid;
     return;
 }
 
@@ -207,7 +221,7 @@ THFCNRET hydidsi2samples_process_fcn( void* inargs )
             while( rejected && (iters<MAXITERS) ){
                 // ----------------------------------------------------------
                 // In principle, we should draw a 3-D sample distributed as
-                // a Gaussian with zero mean and Identity covariance matrix
+                // a Gaussian with zero mean and identity covariance matrix
                 // (which is the 0-th order expansion of MAPL). However, if
                 // we geneate a Gaussian with a variance slighly greate than
                 // 1 we achieve heavier tales in its PDF, so that it
@@ -243,9 +257,23 @@ THFCNRET hydidsi2samples_process_fcn( void* inargs )
                 // ----------------------------------------------------------
                 // Evaluate the true EAP by cubic-spline interpolation in
                 // the lattice:
-                hydidsi2samples_interpolate( args->coeffs,
+                switch(args->interp){
+                    case 'n':
+                        dsiinterp::interpolate_NN( args->grid,
                                   args->Nx, args->Ny, args->Nz,
                                   rx, ry, rz, target );
+                        break;
+                    case 'l':
+                        dsiinterp::interpolate_LN( args->grid,
+                                  args->Nx, args->Ny, args->Nz,
+                                  rx, ry, rz, target );
+                        break;
+                    case 's':
+                        dsiinterp::interpolate_BS( args->grid,
+                                  args->Nx, args->Ny, args->Nz,
+                                  rx, ry, rz, target );
+                        break;
+                }
                 // ----------------------------------------------------------
                 // Check if we must accept or reject:
                 rejected = (sample>target);
@@ -263,129 +291,6 @@ THFCNRET hydidsi2samples_process_fcn( void* inargs )
     while( start < args->getN() );
 
     return (THFCNRET)NULL;
-}
-
-bool hydidsi2samples_interpolate( const BufferType grid,
-                                  const SizeType& Nx, const SizeType& Ny, const SizeType& Nz,
-                                  const double& x, const double& y, const double& z, double& result )
-{
-    // Perform B-spline interpolation within a grid with size (2Nx+5) x (2Ny+5)  x (2Nz+5)
-    // The EAP is estimated in a mesh (-Nx..Nx) x (-Ny..Ny) x (-Nz..Nz). We extend each dimension
-    // with a 0 value at each end: (-Nx-1..Nx+1) x (-Ny-1..Ny+1) x (-Nz-1..Nz+1). Then, we
-    // add yet and additional node at each end because B-splines require it.
-    // Beyond the additional 0-valued node, the EAP is assumed to be 0:
-    result = 0.0;
-    if( (x<=-(double)Nx-1) || (x>=(double)Nx+1) || (y<=-(double)Ny-1) || (y>=(double)Ny+1) || (z<=-(double)Nz-1) || (z>=(double)Nz+1) )
-        return false;
-    // Otherwise, we are inbounds and we can actually interpolate. Compute
-    // the associated grid coordinates for each dimension:
-    unsigned int xi = (unsigned int)( floor(x) + (Nx+2.0) ); // 1 < xi < 2*Nx+3
-    unsigned int yi = (unsigned int)( floor(y) + (Ny+2.0) ); // 1 < yi < 2*Ny+3
-    unsigned int zi = (unsigned int)( floor(z) + (Nz+2.0) ); // 1 < zi < 2*Nz+3
-    double xg = x - floor(x); // 0 <= xg <= 1
-    double yg = y - floor(y); // 0 <= yg <= 1
-    double zg = z - floor(z); // 0 <= zg <= 1
-
-    // Evaluate all the kernel functions for B-spline interpolation:
-    double Bsplines[3][4];
-    hydidsi2samples_splines( xg, Bsplines[0][0], Bsplines[0][1], Bsplines[0][2], Bsplines[0][3] );
-    hydidsi2samples_splines( yg, Bsplines[1][0], Bsplines[1][1], Bsplines[1][2], Bsplines[1][3] );
-    hydidsi2samples_splines( zg, Bsplines[2][0], Bsplines[2][1], Bsplines[2][2], Bsplines[2][3] );
-    // B-spline interpolations will use the 4 x 4 x 4 nearest neighbors of the grid point
-    // with coordinates [xi,yi,zi]. Let's compute:
-    for( unsigned short i=0; i<4; ++i ){
-        for( unsigned short j=0; j<4; ++j ){
-            for( unsigned short k=0; k<4; ++k ){
-                // The value at each grid point is multiplied by the
-                // tensor product of the 4 kernels:
-                // result += (grid[xi+i-1][yi+j-1][zi+k-1])
-                //     * Bsplines[0][i] * Bsplines[1][j] * Bsplines[2][k];
-                // BUT: the grid is stored in a linear format, so we have to
-                // translate the triple indexing [xi,yi,zi] to a unique linear
-                // index
-                IndexType lidx = ((int)(xi+i)-1) + ((int)(yi+j)-1)*(2*Nx+5) + ((int)(zi+k)-1)*(2*Nx+5)*(2*Ny+5);
-                result += (grid[lidx])
-                     * Bsplines[0][i] * Bsplines[1][j] * Bsplines[2][k];
-            }
-        }
-    }
-    return true;
-}
-
-void hydidsi2samples_splines( const double& x, double& b0, double& b1, double& b2, double& b3 )
-{
-    // Evaluate the 4 cubic B-spline functions using Horner's algotihm
-    // Note x is assumed (but not checked) to be in [0,1]
-    // Cubic terms:
-    b0 = -1.0;
-    b1 = 3.0;
-    b2 = -3.0;
-    b3 = 1.0;
-    // Cuadratic terms:
-    b0 = b0*x + 3.0;
-    b1 = b1*x - 6.0;
-    b2 = b2*x + 3.0;
-    b3 = b3*x; // Just 0!
-    // Linear terms:
-    b0 = b0*x - 3.0;
-    b1 = b1*x; // Just 0!
-    b2 = b2*x + 3.0;
-    b3 = b3*x; // Just 0!
-    // Independent terms:
-    b0 = b0*x + 1.0;
-    b1 = b1*x + 4.0;
-    b2 = b2*x + 1.0;
-    b3 = b3*x; // Just 0!
-    // Factor 6.0:
-    b0 /= 6;
-    b1 /= 6;
-    b2 /= 6;
-    b3 /= 6;
-    return;
-}
-
-/** Solve a block-tridiagonal system by means of the Thomas algorithm */
-void hydidsi2samples_thomas3D( const BufferType values, BufferType results, const unsigned int* sizes, const unsigned int order )
-{
-    // ---------------------------
-    unsigned int M = 1;
-    for( unsigned int k=0; k<order; ++k ){ M *= sizes[k]; }
-    // ---------------------------
-    BufferType  gamma = new ElementType[ sizes[order]+1 ];
-    BufferType* theta = new BufferType[  sizes[order]+1 ];
-    for( unsigned int k=0; k<sizes[order]+1; ++k )
-        theta[k] = new ElementType[M];
-    // ---------------------------
-    // Forwards swept to compute the recursive multiplicative factors:
-    gamma[0] = 1;
-    for( unsigned int d=0; d<M; ++d )
-        theta[0][d] = 0.0;
-    for( unsigned int k=0; k<sizes[order]; ++k ){
-        gamma[k+1] = -1.0/( gamma[k] + 4.0 );
-        if( order==0 )
-            theta[k+1][0] = (-gamma[k+1])*( 6.0*values[k] - theta[k][0] );
-        else{
-            hydidsi2samples_thomas3D( &values[k*M], theta[k+1], (unsigned int*)sizes, order-1 );
-            for( unsigned int d=0; d<M; ++d )
-                theta[k+1][d] = (-gamma[k+1])*( 6.0*theta[k+1][d] - theta[k][d] );
-        }
-    }
-    // ---------------------------
-    // Backwards swept
-    for( unsigned int d=0; d<M; ++d )
-        results[(sizes[order]-1)*M+d] = (  (theta[sizes[order]][d])/(1.0-gamma[sizes[order]])  )*gamma[sizes[order]] + theta[sizes[order]][d];
-    for( int k=sizes[order]-2; k>=0; --k ){
-        for( unsigned int d=0; d<M; ++d )
-            results[k*M+d] = (gamma[k+1])*(results[(k+1)*M+d]) + (theta[k+1][d]);
-    }
-    // ---------------------------
-    // Memory cleanup
-    for( unsigned int k=0; k<sizes[order]+1; ++k )
-        delete[] theta[k];
-    delete[] gamma;
-    delete[] theta;
-    // ---------------------------
-    return;
 }
 
 void hydidsi2samples_randn3d( drand48_data* rnd, double& x, double& y, double& z )
