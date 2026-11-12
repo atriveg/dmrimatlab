@@ -58,7 +58,7 @@ r0       = 2*pi*crr.*r0;            % Nx1xG
 e(:,1,:) = 4*pi*ebid2.*crr;         % Nx1xG
 % Recursive rule:
 for l = 2:2:L
-    e(:,l/2+1,:) = ((2*l-1)/l)*r0- ((l-1)/l)*e(:,l/2,:); % Nx1xG
+    e(:,l/2+1,:) = ((2*l-1)/l)*r0 - ((l-1)/l)*e(:,l/2,:); % Nx1xG
     li = l+1; % Odd li
     r0 = ((li-1/2)./bid).*e(:,l/2+1,:) + r0;
 end

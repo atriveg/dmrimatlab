@@ -164,7 +164,7 @@ assert( abs(2*Nmax-opt.Nmax)<10*eps, 'Nmax should be even' );
 if(isempty(opt.lambda))
     opt.lambda = -1.0;
 end
-assert( numel(opt.lambda)==1, 'Optional parameter lambda must be a scalar' );
+assert( isscalar(opt.lambda), 'Optional parameter lambda must be a scalar' );
 if( isnan(opt.lambda) || isinf(opt.lambda) )
     opt.lambda = -1.0;
 end

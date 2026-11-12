@@ -99,8 +99,8 @@ assert(size(gi,1)==G,'The number of rows in gi must match the 4-th dimension of 
 assert(size(gi,2)==3,'gi must be Gx3');
 assert(size(bi,1)==G,'The number of entries in bi must match the 4-th dimension of atti');
 assert(size(bi,2)==1,'bi must b a column vector');
-assert(isequal(size(lpar),[M,N,P]),sprintf('lpar should have size [%d,%d,%d] for the atti provided',M,N,P));
-assert(isequal(size(lperp),[M,N,P]),sprintf('lperp should have size [%d,%d,%d] for the atti provided',M,N,P));
+assert(isequal([size(lpar,1),size(lpar,2),size(lpar,3)],[M,N,P]),sprintf('lpar should have size [%d,%d,%d] for the atti provided',M,N,P));
+assert(isequal([size(lperp,1),size(lperp,2),size(lperp,3)],[M,N,P]),sprintf('lperp should have size [%d,%d,%d] for the atti provided',M,N,P));
 if(~isempty(f))
     assert(isequal(size(f),[M,N,P]),sprintf('f should have size [%d,%d,%d] for the atti provided',M,N,P));
 end
